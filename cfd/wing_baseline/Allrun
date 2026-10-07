@@ -1,0 +1,74 @@
+#!/bin/sh
+#------------------------------------------------------------------------------
+# S1223 wing - simpleFoam / kOmegaSST, blockMesh + snappyHexMesh (OpenFOAM v2412)
+#
+#   ./Allrun            mesh + solve on all cores
+#   ./Allrun -np 8      mesh + solve on 8 cores
+#   ./Allrun -np 1      serial
+#
+# Flow conditions and mesh resolution: edit caseParameters.
+#------------------------------------------------------------------------------
+cd "${0%/*}" || exit
+. ${WM_PROJECT_DIR:?}/bin/tools/RunFunctions
+#------------------------------------------------------------------------------
+
+np=$(nproc 2>/dev/null || echo 1)
+while [ "$#" -gt 0 ]
+do
+    case "$1" in
+    -np) np="$2"; shift ;;
+    *) echo "Unknown option: $1  (usage: ./Allrun [-np N])"; exit 1 ;;
+    esac
+    shift
+done
+
+STL=../../output/wing_outer_mold_line.stl
+[ -f "$STL" ] || { echo "Missing $STL"; exit 1; }
+
+echo "Mesh resolution : $(foamDictionary -entry meshResolution -value caseParameters)"
+echo "Processors      : $np"
+
+# ---------------------------------------------------------------- geometry
+# The CadQuery model (wing.py) is in mm; OpenFOAM works in SI -> scale to m.
+mkdir -p constant/triSurface
+runApplication surfaceTransformPoints -scale 0.001 "$STL" constant/triSurface/wing.stl || exit 1
+runApplication surfaceCheck constant/triSurface/wing.stl || exit 1
+
+# Sanity check: after scaling, the full span (y extent) must be ~2 m
+span=$(sed -n 's/^Bounding Box : (\([^)]*\)) (\([^)]*\)).*/\1 \2/p' log.surfaceCheck \
+       | awk '{printf "%.3f", $5 - $2}')
+echo "STL span after scaling: $span m"
+awk -v s="$span" 'BEGIN { exit !(s > 1.9 && s < 2.1) }' \
+    || { echo "Unexpected STL span ($span m) - check units"; exit 1; }
+
+runApplication surfaceFeatureExtract || exit 1
+
+# ---------------------------------------------------------------- mesh
+runApplication blockMesh || exit 1
+
+if [ "$np" -gt 1 ]
+then
+    # Work on a copy so the tracked system/decomposeParDict stays untouched
+    dict=system/decomposeParDict.run
+    cp system/decomposeParDict "$dict"
+    foamDictionary -entry numberOfSubdomains -set "$np" "$dict" > /dev/null
+    runApplication decomposePar -force -decomposeParDict "$dict" || exit 1
+    runParallel -decompose-dict="$dict" snappyHexMesh -overwrite || exit 1
+    restore0Dir -processor || exit 1
+    runParallel -decompose-dict="$dict" checkMesh -constant || exit 1
+    runParallel -decompose-dict="$dict" potentialFoam -writephi || exit 1
+    runParallel -decompose-dict="$dict" $(getApplication) || exit 1
+    runApplication reconstructParMesh -constant || exit 1
+    runApplication reconstructPar -latestTime || exit 1
+else
+    runApplication snappyHexMesh -overwrite || exit 1
+    restore0Dir || exit 1
+    runApplication checkMesh -constant || exit 1
+    runApplication potentialFoam -writephi || exit 1
+    runApplication $(getApplication) || exit 1
+fi
+
+# ---------------------------------------------------------------- post
+python3 plot_convergence.py --no-show || echo "Plotting skipped (needs python3 + matplotlib)"
+
+#------------------------------------------------------------------------------

@@ -1,0 +1,38 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2412                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+
+// Force/moment coefficients on the wing (included by controlDict).
+// All reference values come from caseParameters:
+//   Aref = 0.18 m^2 (half of the 0.36 m^2 planform - half model)
+//   lRef = 0.2067 m (mean aerodynamic chord)
+//   CofR = (0.2563 0 0) m (quarter-chord of the MAC)
+// Cm is the pitching moment about the y axis through CofR, positive nose-up.
+// Output: postProcessing/forceCoeffs/0/coefficient.dat
+
+forceCoeffs
+{
+    type            forceCoeffs;
+    libs            (forces);
+    writeControl    timeStep;
+    writeInterval   1;
+    log             true;
+
+    patches         (wing);
+    rho             rhoInf;     // incompressible solver: p is kinematic
+    rhoInf          $rhoInf;
+
+    CofR            $CofR;
+    liftDir         $liftDir;
+    dragDir         $dragDir;
+    pitchAxis       (0 1 0);
+    magUInf         $Umag;
+    lRef            $lRef;
+    Aref            $Aref;
+}
+
+// ************************************************************************* //

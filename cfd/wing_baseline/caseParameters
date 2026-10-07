@@ -1,0 +1,76 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  caseParameters  --  the ONE file to edit for this case.
+  Read by 0.orig/*, constant/*, system/* via #include. OpenFOAM v2412 (ESI).
+\*---------------------------------------------------------------------------*/
+
+// ============================================================ FLOW CONDITIONS
+Umag            20;         // freestream speed [m/s]
+alpha           5;          // angle of attack [deg] (rotates the inflow, not the wing)
+
+nu              1.5e-05;    // kinematic viscosity [m^2/s] (air, ~15 C)
+rhoInf          1.225;      // density [kg/m^3] - only scales the dimensional forces
+turbIntensity   0.005;      // freestream turbulence intensity [-]
+turbLength      0.01;       // freestream turbulence length scale [m]
+
+// ============================================================ RUN CONTROL
+nIterations     2000;       // max SIMPLE iterations (stops earlier on residualControl)
+writeInterval   500;        // write fields every N iterations
+
+// ============================================================ MESH RESOLUTION
+// fine   : ~2 mm surface cells, 5 prism layers (a few million cells)
+// coarse : ~4-8 mm surface cells, 3 prism layers (~0.3 M cells, smoke test only)
+meshResolution  fine;       // fine | coarse
+
+// ============================================================ WING GEOMETRY
+// Copied from wing.py (there in mm, here in m). The STL is scaled mm -> m by
+// Allrun. Change these only if wing.py changes.
+rootChord       0.300;      // ROOT_CHORD
+taper           0.2;        // TAPER  (tip chord / root chord)
+span            2.000;      // SPAN   (tip to tip)
+sweepC4         25.0;       // SWEEP_C4_DEG (quarter-chord sweep)
+
+// ============================================================ DERIVED (do not edit)
+// Freestream velocity and force directions in the body axes of wing.py
+// (x aft, y right wing, z up).
+Uinf    #eval{ $Umag*vector(cos(degToRad($alpha)), 0, sin(degToRad($alpha))) };
+dragDir #eval{ vector( cos(degToRad($alpha)), 0, sin(degToRad($alpha))) };
+liftDir #eval{ vector(-sin(degToRad($alpha)), 0, cos(degToRad($alpha))) };
+
+// Freestream turbulence: k = 1.5 (U I)^2, omega = sqrt(k) / (Cmu^0.25 L)
+kInf     #eval{ 1.5*sqr($Umag*$turbIntensity) };
+omegaInf #eval{ sqrt($kInf)/(pow(0.09, 0.25)*$turbLength) };
+
+// Half model (symmetry plane at y = 0), so the reference area is HALF the
+// trapezoidal planform area; Cl, Cd, Cm then equal the full-wing values.
+//   S_full = span * c_root (1 + taper) / 2              = 0.36 m^2
+//   Aref   = S_full / 2                                 = 0.18 m^2
+//   lRef   = MAC = 2/3 c_root (1 + t + t^2) / (1 + t)   = 0.2067 m
+//   CofR   = quarter-chord of the MAC (moment ref point)= (0.2563 0 0) m
+Aref     #eval{ 0.5*$span*$rootChord*(1 + $taper)/2 };
+lRef     #eval{ 2.0/3.0*$rootChord*(1 + $taper + sqr($taper))/(1 + $taper) };
+yMAC     #eval{ $span/6*(1 + 2*$taper)/(1 + $taper) };
+CofR     #eval{ vector(0.25*$rootChord + $yMAC*tan(degToRad($sweepC4)), 0, 0) };
+
+// Mesh presets: background cell size [m] and refinement levels
+#ifeq $meshResolution coarse
+    baseCell        0.5;
+    surfaceLevel    (6 7);      // 7.8 / 3.9 mm on the wing
+    featureLevel    7;
+    nearLevel       4;          // box hugging the wing
+    wakeLevel       2;          // wake box
+    nLayers         3;
+#else
+    baseCell        0.25;
+    surfaceLevel    (6 7);      // 3.9 / 2.0 mm on the wing
+    featureLevel    7;
+    nearLevel       4;
+    wakeLevel       3;
+    nLayers         5;
+#endif
+
+// Domain (m). Wing spans x = 0 .. 0.59, y = 0 .. 1.0 (half model), z = -0.005 .. 0.041
+xMin    -5;     xMax    10;
+yMin     0;     yMax     5;
+zMin    -5;     zMax     5;
+
+// ************************************************************************* //

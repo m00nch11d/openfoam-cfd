@@ -1,0 +1,10 @@
+#!/bin/sh
+cd "${0%/*}" || exit
+. ${WM_PROJECT_DIR:?}/bin/tools/CleanFunctions
+#------------------------------------------------------------------------------
+
+cleanCase0
+rm -rf constant/triSurface constant/extendedFeatureEdgeMesh
+rm -f convergence.png system/decomposeParDict.run
+
+#------------------------------------------------------------------------------
