@@ -1,0 +1,55 @@
+{
+  "status": "MAX_ITERATIONS - reached nIterations without meeting the Cl criterion",
+  "iterations": 4000,
+  "cells": 103238,
+  "quads": 75900,
+  "triangles": 27338,
+  "average_window": [
+    3000,
+    4000
+  ],
+  "cl_final": 1.0757480438,
+  "cl": 1.065553962273227,
+  "cl_std": 0.01083588607413139,
+  "cl_min": 1.0366177637,
+  "cl_max": 1.0849594174,
+  "cd_final": 0.019878000841,
+  "cd": 0.019991103177444555,
+  "cd_std": 0.0019746955820123843,
+  "cd_min": 0.016343457034,
+  "cd_max": 0.024688534486,
+  "cm_final": -0.25433268283,
+  "cm": -0.25172319271875127,
+  "cm_std": 0.0015036820874289314,
+  "cm_min": -0.25450781289,
+  "cm_max": -0.24764986074,
+  "literal_5pct_rule": {
+    "iteration": 8,
+    "cl": 0.086363835762
+  },
+  "transition": {
+    "upper": {
+      "transition_x_c": 0.47283701977395587,
+      "separation_x_c": 0.3259262434833334,
+      "reattachment_x_c": 0.5187778873333334
+    },
+    "lower": {
+      "transition_x_c": 0.16898025732073862,
+      "separation_x_c": 0.017433021605,
+      "reattachment_x_c": 0.2847713832833334
+    }
+  },
+  "yplus": {
+    "upper": {
+      "max": 0.6607488078,
+      "mean": 0.2856774646586956
+    },
+    "lower": {
+      "max": 0.8770642252,
+      "mean": 0.20870198401165216
+    }
+  },
+  "base_cp": 0.7956178547134164,
+  "fields": "averaged from iteration 3000",
+  "mesh_quality": "cells                                      103238  (quads 75900, triangles 27338)\nairfoil faces                              242  (120 upper, 120 lower, 2 base)\nfirst cell height                          1.158e-05 m\nequiangle quality min / 1st pct / mean     0.574 / 0.743 / 0.960\n  quads min, triangles min                 0.603, 0.574\northogonal quality min / 1st pct / mean    0.782 / 0.923 / 0.994\n  quads min, triangles min                 0.812, 0.782\nfar-field (C-boundary) edge length min / max 0.581 / 0.589 m\n"
+}

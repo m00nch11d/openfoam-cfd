@@ -1,0 +1,77 @@
+#!/bin/sh
+#------------------------------------------------------------------------------
+# S1223 airfoil, 2D, Re = 3e5 - simpleFoam + kOmegaSSTLM (gamma-ReThetat)
+#
+#   ./Allrun            mesh + solve with nProcs (caseParameters) MPI ranks
+#   ./Allrun -np 8      ... with 8 ranks
+#
+# Python 3 with numpy, scipy, matplotlib and gmsh is needed for the mesh
+# and the plots (set PYTHON=/path/to/python3 if it is not "python3").
+#------------------------------------------------------------------------------
+cd "${0%/*}" || exit
+. ${WM_PROJECT_DIR:?}/bin/tools/RunFunctions
+#------------------------------------------------------------------------------
+
+PY=${PYTHON:-python3}
+np=$(sed -n 's/^nProcs[[:space:]]*\([0-9]*\);.*/\1/p' caseParameters)
+while [ "$#" -gt 0 ]
+do
+    case "$1" in
+    -np) np="$2"; shift ;;
+    *) echo "Unknown option: $1  (usage: ./Allrun [-np N])"; exit 1 ;;
+    esac
+    shift
+done
+
+mkdir -p results
+rm -f results/run_status.txt
+sed -i 's/^\(stopAt[[:space:]]*\)[a-zA-Z]*;/\1endTime;/' system/controlDict
+
+# ---------------------------------------------------------------- mesh
+echo "Generating hybrid C-mesh (tools/make_mesh.py)"
+$PY tools/make_mesh.py > log.makeMesh 2>&1 || { cat log.makeMesh; exit 1; }
+cat log.makeMesh
+runApplication checkMesh || exit 1
+runApplication renumberMesh -overwrite || exit 1
+restore0Dir || exit 1
+
+# ---------------------------------------------------------------- solve
+$PY tools/monitor.py . > log.monitor 2>&1 &
+monitor=$!
+
+if [ "$np" -gt 1 ]
+then
+    dict=system/decomposeParDict.run
+    cp system/decomposeParDict "$dict"
+    foamDictionary -entry numberOfSubdomains -set "$np" "$dict" > /dev/null
+    runApplication decomposePar -force -decomposeParDict "$dict" || exit 1
+    runParallel -decompose-dict="$dict" potentialFoam -writephi || exit 1
+    runParallel -decompose-dict="$dict" $(getApplication)
+    rc=$?
+    runApplication reconstructPar -latestTime
+else
+    runApplication potentialFoam -writephi || exit 1
+    runApplication $(getApplication)
+    rc=$?
+fi
+
+kill $monitor 2>/dev/null
+sed -i 's/^\(stopAt[[:space:]]*\)[a-zA-Z]*;/\1endTime;/' system/controlDict
+
+if [ ! -f results/run_status.txt ]
+then
+    if [ "$rc" -ne 0 ]
+    then
+        printf 'DIVERGED\nsolver stopped with an error (see log.simpleFoam)\n' > results/run_status.txt
+    else
+        printf 'MAX_ITERATIONS\nreached nIterations without meeting the Cl criterion\n' > results/run_status.txt
+    fi
+fi
+echo "Run status: $(head -1 results/run_status.txt) - $(sed -n 2p results/run_status.txt)"
+
+# ---------------------------------------------------------------- post
+$PY tools/postprocess.py . || echo "Post-processing failed"
+
+grep -q DIVERGED results/run_status.txt && exit 2
+exit 0
+#------------------------------------------------------------------------------

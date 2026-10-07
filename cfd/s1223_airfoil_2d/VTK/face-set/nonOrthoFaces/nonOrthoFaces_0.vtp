@@ -1,0 +1,26 @@
+<?xml version='1.0'?>
+<!-- nonOrthoFaces -->
+<VTKFile type='PolyData' version='0.1' byte_order='LittleEndian' header_type='UInt64'>
+  <PolyData>
+    <Piece NumberOfPoints='8' NumberOfPolys='2'>
+      <Points>
+        <DataArray type='Float32' Name='Points' NumberOfComponents='3' format='binary'>
+YAAAAAAAAACt43NAzczMPQAAAADutXJAzczMPQAAAADutXJAzczMPQrXIzyt43NAzczMPQrXIzwoKwxBzczMPQAAAABluwtBzczMPQAAAABluwtBzczMPQrXIzwoKwxBzczMPQrXIzw=
+        </DataArray>
+      </Points>
+      <Polys>
+        <DataArray type='Int32' Name='connectivity' format='binary'>
+gAAAAAAAAAAAAAAAAQAAAAIAAAADAAAABAAAAAUAAAAGAAAABwAAAA==
+        </DataArray>
+        <DataArray type='Int32' Name='offsets' format='binary'>
+CAAAAAAAAAAEAAAACAAAAA==
+        </DataArray>
+      </Polys>
+      <CellData>
+        <DataArray type='Int32' Name='faceID' format='binary'>
+CAAAAAAAAABaFgMAnBcDAA==
+        </DataArray>
+      </CellData>
+    </Piece>
+  </PolyData>
+</VTKFile>

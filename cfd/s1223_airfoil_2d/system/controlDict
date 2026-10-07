@@ -1,0 +1,105 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2412                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+#include "<case>/caseParameters"
+
+application     simpleFoam;
+
+startFrom       latestTime;
+startTime       0;
+stopAt          endTime;
+endTime         $nIterations;
+deltaT          1;
+
+writeControl    timeStep;
+writeInterval   500;
+purgeWrite      2;
+writeFormat     ascii;      // read by tools/postprocess.py
+writePrecision  10;
+writeCompression off;
+timeFormat      general;
+timePrecision   6;
+runTimeModifiable true;     // tools/monitor.py stops the run via stopAt
+
+functions
+{
+    forceCoeffs
+    {
+        type            forceCoeffs;
+        libs            (forces);
+        writeControl    timeStep;
+        writeInterval   1;
+        log             false;
+        patches         (airfoil);
+        rho             rhoInf;
+        rhoInf          $:rho;
+        CofR            $CofR;          // quarter chord
+        liftDir         $liftDir;
+        dragDir         $dragDir;
+        pitchAxis       (0 0 -1);       // Cm positive nose-up
+        magUInf         $Umag;
+        lRef            $chord;
+        Aref            $Aref;          // chord x spanDepth
+    }
+
+    solverInfo
+    {
+        type            solverInfo;
+        libs            (utilityFunctionObjects);
+        fields          (U p k omega gammaInt ReThetat);
+        writeResidualFields no;
+        writeControl    timeStep;
+        writeInterval   1;
+    }
+
+    yPlus
+    {
+        type            yPlus;
+        libs            (fieldFunctionObjects);
+        patches         (airfoil);
+        writeControl    writeTime;
+    }
+
+    wallShearStress
+    {
+        type            wallShearStress;
+        libs            (fieldFunctionObjects);
+        patches         (airfoil);
+        writeControl    writeTime;
+    }
+
+    // The laminar separation bubble makes the steady solution oscillate
+    // slightly; results are averaged over the last iterations.
+    fieldAverage
+    {
+        type            fieldAverage;
+        libs            (fieldFunctionObjects);
+        timeStart       $averageStart;
+        writeControl    writeTime;
+        fields
+        (
+            U               { mean on; prime2Mean off; base iteration; }
+            p               { mean on; prime2Mean off; base iteration; }
+            k               { mean on; prime2Mean off; base iteration; }
+            nut             { mean on; prime2Mean off; base iteration; }
+            gammaInt        { mean on; prime2Mean off; base iteration; }
+            wallShearStress { mean on; prime2Mean off; base iteration; }
+            yPlus           { mean on; prime2Mean off; base iteration; }
+        );
+    }
+}
+
+// ************************************************************************* //

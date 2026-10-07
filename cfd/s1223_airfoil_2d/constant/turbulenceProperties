@@ -1,0 +1,40 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2412                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      turbulenceProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+#include "<case>/caseParameters"
+
+simulationType  RAS;
+
+RAS
+{
+    // k-omega SST with the Langtry-Menter gamma-ReThetat transition model
+    RASModel        kOmegaSSTLM;
+    turbulence      on;
+    printCoeffs     on;
+
+    kOmegaSSTLMCoeffs
+    {
+        // Hold the freestream k and omega (Spalart-Rumsey sustaining terms)
+        // so the turbulence intensity reaching the airfoil is the set Tu,
+        // instead of decaying over the 30 m from the far field.
+        decayControl    yes;
+        kInf            $kInf;
+        omegaInf        $omegaInf;
+    }
+}
+
+// ************************************************************************* //
