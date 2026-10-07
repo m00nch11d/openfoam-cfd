@@ -1,0 +1,57 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  caseParameters -- the ONE file to edit for this case (OpenFOAM v2412, ESI).
+  Read by OpenFOAM (#include) and by the Python tools (plain "name value;"
+  entries only; #eval entries are OpenFOAM-only).
+\*---------------------------------------------------------------------------*/
+
+// ============================================================ FLOW
+Re              3e5;        // Reynolds number based on chord
+chord           0.3;        // airfoil chord [m]
+alpha           0;          // angle of attack [deg] (rotates the inflow)
+
+// ISA standard atmosphere, sea level (T = 288.15 K, p = 101325 Pa)
+rho             1.225;      // [kg/m^3]
+mu              1.7894e-05; // [Pa s]
+
+Tu              0.001;      // freestream turbulence intensity (0.1 %)
+nutRatio        1;          // freestream eddy/molecular viscosity ratio
+
+// ============================================================ MESH (tools/make_mesh.py)
+teCut           0.999;      // blunt TE: airfoil cut straight at x/c = teCut
+yPlusTarget     0.7;        // first-cell-centre y+ target -> flat-plate first cell height
+firstCellFactor 0.4;        // safety factor on that height: the flat-plate estimate gave
+                            // y+ up to 2.3 at the nose and TE corners (mean 0.6)
+nSurface        120;        // elements on EACH of upper and lower surface (sine)
+nBase           2;          // elements across the blunt TE base
+quadThickness   0.10;       // structured quad band around wall and wake [m]
+nLayers         80;         // cells across the quad band
+wakeChords      30;         // wake length behind the TE [chords]
+nWake           350;        // wake elements (one-sided cosine, fine at the TE)
+farfieldChords  30;         // C-mesh semicircle radius around the LE [chords]
+triGrowth       0.10;       // triangle size growth per unit distance
+triMaxSize      0.60;       // far-field triangle size [m] (>= chord)
+spanDepth       0.01;       // 2D depth (one cell) [m]
+
+// ============================================================ RUN CONTROL
+nProcs          24;         // MPI ranks (Allrun -np N overrides)
+nIterations     4000;       // max SIMPLE iterations
+minIterations   500;        // never stop on Cl before this
+averageStart    3000;       // fields and coefficients are averaged from this iteration
+clWindow        200;        // Cl stop: window of consecutive iterations ...
+clTol           1e-5;       // ... in which every |dCl/Cl| per iteration < clTol
+clDivergence    20;         // |Cl| above this = divergence
+
+// ============================================================ DERIVED (do not edit)
+nu          #eval{ $mu/$rho };
+Umag        #eval{ $Re*$nu/$chord };
+Uinf        #eval{ $Umag*vector(cos(degToRad($alpha)), sin(degToRad($alpha)), 0) };
+dragDir     #eval{ vector( cos(degToRad($alpha)), sin(degToRad($alpha)), 0) };
+liftDir     #eval{ vector(-sin(degToRad($alpha)), cos(degToRad($alpha)), 0) };
+kInf        #eval{ 1.5*sqr($Umag*$Tu) };
+omegaInf    #eval{ $kInf/($nu*$nutRatio) };
+// Langtry-Menter freestream transition Reynolds number (Tu in %, Tu <= 1.3 %)
+ReThetatInf #eval{ 1173.51 - 589.428*(100*$Tu) + 0.2196/sqr(100*$Tu) };
+Aref        #eval{ $chord*$spanDepth };
+CofR        #eval{ vector(0.25*$chord, 0, 0) };     // quarter chord
+
+// ************************************************************************* //

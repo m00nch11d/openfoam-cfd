@@ -1,0 +1,10 @@
+#!/bin/sh
+cd "${0%/*}" || exit
+. ${WM_PROJECT_DIR:?}/bin/tools/CleanFunctions
+#------------------------------------------------------------------------------
+
+cleanCase0
+rm -rf constant/polyMesh constant/meshInfo.npz results system/decomposeParDict.run
+sed -i 's/^\(stopAt[[:space:]]*\)[a-zA-Z]*;/\1endTime;/' system/controlDict
+
+#------------------------------------------------------------------------------
