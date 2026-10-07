@@ -5,3 +5,4 @@
 /system/decomposeParDict.run
 /results/run_status.txt
 /constant/meshQuality.txt
+/VTK/
