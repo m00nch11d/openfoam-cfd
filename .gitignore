@@ -7,3 +7,7 @@ constant/polyMesh/
 log.*
 __pycache__/
 *.pyc
+wing_cfd/case/
+wing_cfd/template2d.npz
+wing_cfd/shim/*.so
+wing_cfd/run.log
