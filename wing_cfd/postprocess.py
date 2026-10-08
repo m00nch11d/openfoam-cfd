@@ -211,17 +211,17 @@ def split_surfaces(sec, y):
 
 def transition(xc, cfx):
     """Transition onset from skin friction: the Cf minimum just upstream of
-    the steepest Cf rise (x/c 0.03-0.97); None if Cf never rises sharply
+    the steepest Cf rise (x/c 0.05-0.97); None if Cf never rises sharply
     (laminar). Also laminar separation (Cf < 0) and reattachment."""
     o = np.argsort(xc)
     x, cf = xc[o], cfx[o]
-    m = (x > 0.03) & (x < 0.97)
+    m = (x > 0.05) & (x < 0.97)
     x, cf = x[m], cf[m]
     xt = None
     if len(x) > 10:
         # smooth a little and look for the steepest rise
-        k = np.ones(3) / 3
-        cs = np.convolve(cf, k, mode="same")
+        k = np.ones(5) / 5
+        cs = np.convolve(np.pad(cf, 2, mode="edge"), k, mode="valid")
         d = np.gradient(cs, x)
         i = int(np.argmax(d))
         j = int(np.argmin(cs[: i + 1]))
