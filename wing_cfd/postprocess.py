@@ -209,25 +209,33 @@ def split_surfaces(sec, y):
     return xc, upper
 
 
-def transition(xc, cfx):
-    """Transition onset from skin friction: the Cf minimum just upstream of
-    the steepest Cf rise (x/c 0.05-0.97); None if Cf never rises sharply
-    (laminar). Also laminar separation (Cf < 0) and reattachment."""
+NUT_TR = 2.0       # transition threshold on the boundary-layer max of nut/nu
+
+
+def bl_nut_ratio(internal, sec, y):
+    """Max nut/nu along a wall-normal probe (0.02-6 mm) at each face."""
+    dist = np.geomspace(2e-5, 6e-3, 25)
+    pts = sec["mid"][:, None, :] - sec["n"][:, None, :] * dist[None, :, None]
+    pts[:, :, 1] = y
+    s = pv.PolyData(pts.reshape(-1, 3)).sample(internal)
+    return (s.point_data["nut"].reshape(len(sec["mid"]), len(dist)) / P.NU).max(1)
+
+
+def transition(xc, cfx, nutr):
+    """Transition onset: first x/c where the boundary-layer maximum of
+    nut/nu rises above NUT_TR (laminar ~0.1-0.4, turbulent > 10) and stays
+    above it for the next 3 faces; None if the surface stays laminar.
+    Also laminar separation (Cf < 0) and reattachment (Cf > 0 again)."""
     o = np.argsort(xc)
-    x, cf = xc[o], cfx[o]
-    m = (x > 0.05) & (x < 0.97)
-    x, cf = x[m], cf[m]
+    x, cf, r = xc[o], cfx[o], nutr[o]
     xt = None
-    if len(x) > 10:
-        # smooth a little and look for the steepest rise
-        k = np.ones(5) / 5
-        cs = np.convolve(np.pad(cf, 2, mode="edge"), k, mode="valid")
-        d = np.gradient(cs, x)
-        i = int(np.argmax(d))
-        j = int(np.argmin(cs[: i + 1]))
-        rise = cs[i:].max() - cs[j]
-        if rise > 0.002 and cs[i:].max() > 0.003:
-            xt = float(x[j])
+    for i in range(1, len(x) - 3):
+        if x[i] > 0.005 and r[i] >= NUT_TR and r[i - 1] < NUT_TR and (r[i:i + 4] >= NUT_TR).all():
+            f = (NUT_TR - r[i - 1]) / (r[i] - r[i - 1])
+            xt = float(x[i - 1] + f * (x[i] - x[i - 1]))
+            break
+    m = (x > 0.005) & (x < 0.995)
+    x, cf = x[m], cf[m]
     sep = np.where(cf < 0)[0]
     xs = float(x[sep[0]]) if len(sep) else None
     xr = None
@@ -316,8 +324,11 @@ def render_3d(internal, wing):
                      position_y=0.2, height=0.6, fmt="%.3g")
         pl.add_mesh(slices, scalars=f, cmap=cmap, clim=clim, log_scale=log,
                     lighting=False, scalar_bar_args=sargs)
-        pl.add_mesh(wing_pd, scalars=f, cmap=cmap, clim=clim, log_scale=log,
-                    show_scalar_bar=False, smooth_shading=True)
+        if f == "TI":       # k = 0 on the wall: draw the wing in grey
+            pl.add_mesh(wing_pd, color="lightgrey", smooth_shading=True)
+        else:
+            pl.add_mesh(wing_pd, scalars=f, cmap=cmap, clim=clim, log_scale=log,
+                        show_scalar_bar=False, smooth_shading=True)
         pl.add_text(f"Half wing, S1223 sine LE, Re 3e5, AoA {P.AOA_DEG:g} deg: {lab}\n"
                     f"section planes y = {', '.join(f'{y:.4g}' for y in ys)} m "
                     f"(last plane outboard of the tip)", font_size=11, color="black")
@@ -383,9 +394,10 @@ def main():
         cp = sec["p"] / QINF
         # streamwise wall shear (flow over both surfaces is roughly +x)
         cfx = sec["tau"][:, 0] / QINF
+        nutr = bl_nut_ratio(internal, sec, ys)
         tr = {}
         for key, msk in (("upper", upper), ("lower", ~upper)):
-            xt, xs, xr = transition(xc[msk], cfx[msk])
+            xt, xs, xr = transition(xc[msk], cfx[msk], nutr[msk])
             tr[key] = dict(transition=xt, lam_sep=xs, reattach=xr)
         plot_cp(name, ys, kind, xc, upper, cp, cl, cd, cm, tr)
         plot_slice_fields(name, ys, kind, internal)
