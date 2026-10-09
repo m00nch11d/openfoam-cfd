@@ -71,9 +71,16 @@ if [ ! -f "$SHIM" ] || [ shim/digest_shim.c -nt "$SHIM" ]; then
     gcc -O2 -shared -fPIC -o "$SHIM" shim/digest_shim.c
 fi
 NP=$("$PY" -c "import params; print(params.N_PROCS)")
+CORES=$(lscpu -p=Core,Socket | grep -v '^#' | sort -u | wc -l)
+THREADS=$(nproc)
 MPI_OPTS=""
 [ "$(id -u)" -eq 0 ] && MPI_OPTS="$MPI_OPTS --allow-run-as-root"
-[ "$NP" -gt "$(nproc)" ] && MPI_OPTS="$MPI_OPTS --oversubscribe"
+if [ "$NP" -gt "$THREADS" ]; then
+    MPI_OPTS="$MPI_OPTS --oversubscribe"
+elif [ "$NP" -gt "$CORES" ]; then
+    MPI_OPTS="$MPI_OPTS --use-hwthread-cpus"      # e.g. 24 ranks on 12 cores / 24 threads
+fi
+echo "machine: $CORES cores / $THREADS threads; running $NP MPI processes $MPI_OPTS"
 
 if [ $POST_ONLY = 1 ]; then
     log "Post-processing"

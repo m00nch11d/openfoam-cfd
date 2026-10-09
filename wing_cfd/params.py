@@ -56,7 +56,10 @@ TIP_RATIO = 1.3          # spanwise growth away from the tip plane
 TIP_DY_MAX = 0.45        # outboard growth stops at this cell size [m]
 
 # ============================================================== solver / run
-N_PROCS = 4              # MPI processes (threads); use <= physical cores
+N_PROCS = 24             # MPI processes: 24 = 12 cores x 2 hardware threads
+                         # (run_all.sh adds --use-hwthread-cpus when N_PROCS
+                         # exceeds the physical cores; for CFD, N_PROCS = 12
+                         # is often as fast - try both on your machine)
 N_ITER_MAX = 1000        # maximum iterations
 WRITE_INTERVAL = 250     # write fields every N iterations
 RELAX_U = 0.6            # SIMPLE relaxation (SIMPLEC 0.8/0.7 diverges at the tip)

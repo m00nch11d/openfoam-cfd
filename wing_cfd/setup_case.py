@@ -18,6 +18,9 @@ HDR = """FoamFile
 N_PROCS = P.N_PROCS
 END_ITER = P.N_ITER_MAX
 WRITE_INTERVAL = P.WRITE_INTERVAL
+# split streamwise in 2 for >= 8 processes (fewer, larger processor faces
+# than N thin spanwise slabs); scotch is not built in the Ubuntu package
+NX = 2 if N_PROCS >= 8 and N_PROCS % 2 == 0 else 1
 
 
 def w(case, loc, obj, body, cls="dictionary"):
@@ -180,9 +183,10 @@ solvers
     p
     {
         solver          GAMG;
-        smoother        GaussSeidel;
+        smoother        DICGaussSeidel;
         tolerance       1e-7;
-        relTol          0.05;
+        relTol          0.1;
+        maxIter         50;
         nCellsInCoarsestLevel 50;
     }
     "(U|k|omega|ReThetat|gammaInt)"
@@ -209,7 +213,7 @@ relaxationFactors
 }
 """ % (P.RELAX_P, P.RELAX_U, P.RELAX_TURB))
     w(case, "system", "decomposeParDict",
-      f"numberOfSubdomains {N_PROCS};\n\nmethod          hierarchical;\n\nhierarchicalCoeffs\n{{\n    n           (1 {N_PROCS} 1);\n    order       xyz;\n}}\n")
+      f"numberOfSubdomains {N_PROCS};\n\nmethod          hierarchical;\n\nhierarchicalCoeffs\n{{\n    n           ({NX} {N_PROCS // NX} 1);\n    order       xyz;\n}}\n")
     print(f"U_inf={P.U_INF:.4f} m/s  k={k:.4g}  omega={omega:.4g}  ReThetat={rt:.1f}")
     print(f"first layer height (y+={P.YPLUS_TARGET}) = {P.H1:.4e} m")
 
