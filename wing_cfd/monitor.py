@@ -1,13 +1,14 @@
 """Watch a running simpleFoam case; stop it on divergence or CL convergence.
 
 Stop rules (checked every iteration):
-  * divergence: NaN/Inf or FATAL in the log; after iteration 100 |CL| > 10,
+  * divergence: NaN/Inf or FATAL in the log; after iteration 100 |CL| > DIVERGE_CL,
     CD < 0 or CD > 5; an initial residual > 1 after iteration 50 -> stopAt writeNow,
     status DIVERGED
   * convergence: after MIN_ITER iterations, the relative CL change between
     consecutive iterations |CL_n - CL_n-1| / |CL_n| stays below CL_TOL for
     CL_WINDOW consecutive iterations -> stopAt writeNow, status CONVERGED
-  * endTime (4000) reached -> status MAX_ITER
+  * endTime (N_ITER_MAX) reached -> status MAX_ITER
+Thresholds are set in params.py.
 """
 import math
 import os
@@ -16,9 +17,12 @@ import subprocess
 import sys
 import time
 
-CL_TOL = 1.0e-5
-CL_WINDOW = 100
-MIN_ITER = 300
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import params as P  # noqa: E402
+
+CL_TOL = P.CL_TOL
+CL_WINDOW = P.CL_WINDOW
+MIN_ITER = P.MIN_ITER
 
 case = sys.argv[1] if len(sys.argv) > 1 else "case"
 log = os.path.join(case, "log.simpleFoam")
@@ -76,7 +80,7 @@ def main(pid):
         rows = read_coeffs()
         for r in rows[done_upto:]:
             it, cl, cd = int(r["Time"]), r["Cl"], r["Cd"]
-            if not all(map(math.isfinite, (cl, cd))) or (it > 100 and (abs(cl) > 10 or cd < 0 or cd > 5)):
+            if not all(map(math.isfinite, (cl, cd))) or (it > 100 and (abs(cl) > P.DIVERGE_CL or cd < 0 or cd > 5)):
                 stop(f"DIVERGED: unphysical coefficients at iteration {it} "
                      f"(CL={cl:.4g}, CD={cd:.4g})")
                 return

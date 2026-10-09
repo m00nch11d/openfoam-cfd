@@ -1,0 +1,6 @@
+numpy>=1.26
+scipy>=1.11
+matplotlib>=3.8
+gmsh>=4.11
+pyvista>=0.43
+vtk>=9.3

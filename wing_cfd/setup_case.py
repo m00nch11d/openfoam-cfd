@@ -15,9 +15,9 @@ HDR = """FoamFile
 }}
 """
 
-N_PROCS = 4
-END_ITER = 4000
-WRITE_INTERVAL = 250
+N_PROCS = P.N_PROCS
+END_ITER = P.N_ITER_MAX
+WRITE_INTERVAL = P.WRITE_INTERVAL
 
 
 def w(case, loc, obj, body, cls="dictionary"):
@@ -200,14 +200,14 @@ SIMPLE
 }
 relaxationFactors
 {
-    fields          { p 0.3; }
+    fields          { p %s; }
     equations
     {
-        U               0.6;
-        ".*"            0.5;
+        U               %s;
+        ".*"            %s;
     }
 }
-""")
+""" % (P.RELAX_P, P.RELAX_U, P.RELAX_TURB))
     w(case, "system", "decomposeParDict",
       f"numberOfSubdomains {N_PROCS};\n\nmethod          hierarchical;\n\nhierarchicalCoeffs\n{{\n    n           (1 {N_PROCS} 1);\n    order       xyz;\n}}\n")
     print(f"U_inf={P.U_INF:.4f} m/s  k={k:.4g}  omega={omega:.4g}  ReThetat={rt:.1f}")

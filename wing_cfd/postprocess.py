@@ -294,15 +294,68 @@ def plot_slice_fields(name, y, kind, internal):
 
 
 # ------------------------------------------------------------ 3D views
-def iso_camera(pl):
-    focus = np.array([0.2, 0.55, 0.0])
-    d = np.array([-1.0, -1.0, 1.0])       # isometric: upstream (LE side), above, root side
+def iso_camera(pl, focus=(0.2, 0.55, 0.0), scale=0.55, d=(-1.0, -1.0, 1.0)):
+    """Isometric view from upstream (leading-edge side), above, root side."""
+    focus = np.array(focus)
+    d = np.array(d, float)
     d /= np.linalg.norm(d)
     pl.camera.focal_point = focus
-    pl.camera.position = focus + 2.3 * d
+    pl.camera.position = focus + 3.0 * d
     pl.camera.up = (0, 0, 1)
     pl.camera.parallel_projection = True
-    pl.camera.parallel_scale = 0.55
+    pl.camera.parallel_scale = scale
+
+
+def render_pathlines(internal, wing):
+    """Particle paths through the tip region, from upstream of the LE to
+    PATHLINE_X_BEHIND behind the trailing edge (tip vortex)."""
+    x_end = P.C + P.PATHLINE_X_BEHIND
+    # VTK cannot locate points reliably inside the micron-thin wall/wake
+    # cells (paths stop "out of domain"), so the tip region is resampled
+    # onto a uniform 5 mm grid first (points inside the wing get U = 0)
+    x0, x1, y0, y1, z0, z1 = -0.1, x_end, P.B - 0.25, P.B + 0.25, -0.25, 0.25
+    h = 0.005
+    grid = pv.ImageData(dimensions=(int(round((x1 - x0) / h)) + 1,
+                                    int(round((y1 - y0) / h)) + 1,
+                                    int(round((z1 - z0) / h)) + 1),
+                        spacing=(h, h, h), origin=(x0, y0, z0))
+    box = internal.clip_box((x0 - 0.02, x1 + 0.02, y0 - 0.02, y1 + 0.02,
+                             z0 - 0.02, z1 + 0.02), invert=False)
+    grid = grid.sample(box)
+    # seeds in the vortex-formation region at the tip trailing edge,
+    # integrated both ways: backwards they show the flow wrapping round the
+    # tip from the lower surface, forwards the roll-up into the tip vortex
+    ys, zs = np.meshgrid(np.linspace(P.B - 0.06, P.B + 0.02, 9),
+                         np.linspace(-0.01, 0.05, 7))
+    seeds = pv.PolyData(np.column_stack([np.full(ys.size, P.C + 0.005),
+                                         ys.ravel(), zs.ravel()]))
+    sl = grid.streamlines_from_source(seeds, vectors="U", integration_direction="both",
+                                      max_steps=20000, initial_step_length=0.5,
+                                      max_step_length=1.0, terminal_speed=1e-3)
+    sl.point_data["Umag"] = np.linalg.norm(sl.point_data["U"], axis=1)
+    tubes = sl.tube(radius=0.0012)
+    wing_pd = add_derived(wing.cell_data_to_point_data())
+    clim = (0.5 * P.U_INF, 1.4 * P.U_INF)
+    for tag, d, scale, focus in (
+            ("iso", (-1.0, -1.0, 1.0), 0.5, (0.55, 0.85, 0.0)),
+            ("rear", (1.0, -0.12, 0.12), 0.16, (P.C, P.B - 0.02, 0.0))):
+        pl = pv.Plotter(off_screen=True, window_size=(1800, 1200))
+        pl.set_background("white")
+        pl.add_mesh(wing_pd, scalars="Cp", cmap="RdBu_r", clim=(-2.5, 1),
+                    smooth_shading=True,
+                    scalar_bar_args=dict(title="Cp", color="black", vertical=True,
+                                         position_x=0.04, position_y=0.2, height=0.5))
+        pl.add_mesh(tubes, scalars="Umag", cmap="viridis", clim=clim,
+                    scalar_bar_args=dict(title="|U| [m/s]", color="black", vertical=True,
+                                         position_x=0.9, position_y=0.2, height=0.6))
+        view = "isometric, top / leading-edge side" if tag == "iso" else \
+            "looking upstream from the end of the paths"
+        pl.add_text(f"Tip-vortex particle paths to x = TE + {P.PATHLINE_X_BEHIND / P.C:g}c "
+                    f"({x_end:.2f} m); {view}", font_size=11, color="black")
+        iso_camera(pl, focus=focus, scale=scale, d=d)
+        pl.screenshot(os.path.join(OUT, f"wing_3d_tip_vortex_pathlines{'' if tag == 'iso' else '_rear'}.png"))
+        pl.close()
+    return sl.n_lines
 
 
 def render_3d(internal, wing):
@@ -383,6 +436,7 @@ def main():
     cl_int = ((fp + tau_sign * fv)[[0, 2]] @ LIFT) / (QINF * sref)
 
     yplus, yplus_tip = render_3d(internal, wing)
+    n_paths = render_pathlines(internal, wing)
 
     rows = []
     for k, (y, kind) in enumerate(P.stations()):

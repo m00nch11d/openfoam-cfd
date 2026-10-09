@@ -11,3 +11,5 @@ wing_cfd/case/
 wing_cfd/template2d.npz
 wing_cfd/shim/*.so
 wing_cfd/run.log
+wing_cfd/.venv/
+wing_cfd/__pycache__/

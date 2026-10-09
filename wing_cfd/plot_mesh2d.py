@@ -3,6 +3,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 from matplotlib.collections import PolyCollection
 
 d = np.load("template2d.npz")
@@ -24,4 +25,5 @@ for ax, (title, (x0, x1, y0, y1)) in zip(axs.flat, views):
     ax.set_title(title); ax.set_xlabel("x [m]"); ax.set_ylabel("z [m]")
 fig.suptitle("2D section mesh: quads (blue, 5 cm wall layer + wake strip), triangles (orange)")
 fig.tight_layout()
+os.makedirs("results", exist_ok=True)
 fig.savefig("results/mesh_2d_section.png", dpi=150)

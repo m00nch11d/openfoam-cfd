@@ -2,13 +2,17 @@
 
 * layers 0 .. N_WING-1 span the wing (y = 0 .. B): airfoil interior absent,
   its edges are the 'wing' wall
-* N_TIP growing layers outboard of the tip include the airfoil-interior
-  triangles; their bottom faces at y = B close the tip ('wing' wall)
+* layers outboard of the tip include the airfoil-interior triangles; their
+  bottom faces at y = B close the tip ('wing' wall)
+* spanwise spacing is clustered to TIP_DY_FIRST on both sides of y = B so
+  the flat tip cap gets y+ < 1 (the section's wall-normal clustering is kept
+  outboard: relaxing it makes thin wedge cells ~90 deg non-orthogonal)
 * every spanwise plane is morphed so the section matches the local chord of
   the sine leading edge (S1223 scaled about the fixed TE); the morph decays
   to zero 0.05 -> 0.5 m from the wall
 Patches: wing (wall), root (symmetryPlane y=0), side (y=ymax), farfield, outlet
 """
+import math
 import os
 
 import numpy as np
@@ -17,35 +21,26 @@ import params as P
 
 
 def span_planes():
-    n_wing = int(round(P.B / P.DY_WING))
-    y = list(np.linspace(0, P.B, n_wing + 1))
-    h = P.DY_WING
-    for _ in range(P.N_TIP):
-        y.append(y[-1] + h)
+    """Spanwise planes: uniform DY_WING on the wing, clustered geometrically
+    to TIP_DY_FIRST on both sides of the tip plane y = B, then growing by
+    TIP_RATIO outboard up to TIP_DY_MAX."""
+    clus = []
+    h = P.TIP_DY_FIRST
+    while h < P.DY_WING:
+        clus.append(h)
         h *= P.TIP_RATIO
-    return np.array(y), n_wing
-
-
-N_RAMP = 0            # (a ramp makes thin wedge cells -> ~90 deg non-orthogonality)
-H_TIP = 2.0e-4       # first-layer height reached outboard of the tip [m]
-
-
-def relaxed_nodes(d, t):
-    """2D nodes with the strip's first-layer height raised geometrically
-    from its wall value (t=0) to H_TIP (t=1); used
-    outboard of the tip where the strip continues into free flow."""
-    from mesh2d import geometric_dist
-    X, sid, h1c = d["strip"], d["sid"], d["h1col"]
-    n = X.shape[0] - 1
-    nodes = d["nodes"].copy()
-    for i in range(X.shape[1]):
-        col = X[:, i]
-        s = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(col, axis=0), axis=1))])
-        h = h1c[i] ** (1 - t) * max(H_TIP, h1c[i]) ** t
-        st = geometric_dist(h, s[-1], n)
-        nodes[sid[1:, i], 0] = np.interp(st[1:], s, col[:, 0])
-        nodes[sid[1:, i], 1] = np.interp(st[1:], s, col[:, 1])
-    return nodes
+    n_uni = int(math.ceil((P.B - sum(clus)) / P.DY_WING))
+    dy_uni = (P.B - sum(clus)) / n_uni
+    dys = [dy_uni] * n_uni + clus[::-1]
+    h = P.TIP_DY_FIRST
+    out = []
+    while h <= P.TIP_DY_MAX:
+        out.append(h)
+        h *= P.TIP_RATIO
+    y = np.concatenate([[0.0], np.cumsum(dys)])
+    y[-1] = P.B
+    y = np.concatenate([y, P.B + np.cumsum(out)])
+    return y, len(dys)
 
 
 def morph_weight(d, d0=P.QUAD_THICK, d1=0.5):
@@ -98,9 +93,7 @@ def main(case="case"):
     pts = np.zeros((NL + 1, n2, 3))
     for j, y in enumerate(yp):
         s = P.local_chord(y) / P.C
-        t = min(1.0, max(0, j - n_wing) / N_RAMP) if N_RAMP else 0.0
-        base = relaxed_nodes(d, t) if t > 0 else nodes2
-        xz = base + w * ((xte + (base - xte) * s) - base)
+        xz = nodes2 + w * ((xte + (nodes2 - xte) * s) - nodes2)
         pts[j, :, 0] = xz[:, 0]
         pts[j, :, 1] = y
         pts[j, :, 2] = xz[:, 1]
