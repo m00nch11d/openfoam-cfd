@@ -22,7 +22,7 @@ from matplotlib.colors import LogNorm  # noqa: E402
 from scipy.spatial import cKDTree  # noqa: E402
 
 import params as P  # noqa: E402
-from run_solver import coeff_file, read_coeffs  # noqa: E402
+from run_solver import read_all_coeffs  # noqa: E402
 
 Q_INF = 0.5 * P.U_INF ** 2          # kinematic dynamic pressure (p is p/rho)
 
@@ -263,10 +263,12 @@ def main():
     # ---------------------------------------------------------- coefficients
     coeffs = {}
     for name in ("coeffs_S1223", "coeffs_NACA0009", "coeffs_total"):
-        f = coeff_file(case, name)
-        if not f:
+        d = read_all_coeffs(case, name)
+        if not d:
             continue
-        d = read_coeffs(f)
+        # drop iterations beyond the saved time (e.g. from an interrupted run)
+        keep = [k for k, tt in enumerate(d["Time"]) if tt <= float(t) + 1e-9]
+        d = {c: [v[k] for k in keep] for c, v in d.items()}
         cm_key = "CmPitch" if "CmPitch" in d else "Cm"
         n = len(d["Cl"])
         w = min(100, n)
@@ -338,6 +340,17 @@ def main():
             else:
                 out["x_laminar_separation"] = None
                 out["x_reattachment"] = None
+            # separation-induced transition: the gamma-ReTheta model triggers it
+            # through its internal separation intermittency, not the transported
+            # gamma field, so if a bubble closes before the gamma onset the
+            # transition point is taken at the Cf minimum inside the bubble
+            out["method"] = "gamma>0.5 & nut/nu>%g" % P.NUT_RATIO_TR
+            xs, xr = out["x_laminar_separation"], out["x_reattachment"]
+            if xs is not None and xr is not None and \
+                    (out["x_transition"] is None or out["x_transition"] > xr):
+                inb = (x >= xs) & (x <= xr)
+                out["x_transition"] = float(x[inb][np.argmin(cf[inb])])
+                out["method"] = "bubble: Cf minimum"
             # onset of the turbulent Cf rise: minimum Cf before the largest Cf rise
             dcf = np.gradient(cf, x)
             mm = m & (x < 0.98)
@@ -469,20 +482,27 @@ def main():
         seen = set()
         for line in open(log, errors="replace"):
             if line.startswith("Time = "):
-                it += 1
+                it = int(float(line.split()[2]))
                 seen = set()
                 continue
             m = re.search(r"Solving for (\w+), Initial residual = ([-+.\deE]+)", line)
             if m and m.group(1) not in seen:
                 seen.add(m.group(1))
-                res.setdefault(m.group(1), ([], []))
-                res[m.group(1)][0].append(it)
-                res[m.group(1)][1].append(float(m.group(2)))
+                res.setdefault(m.group(1), {})[it] = float(m.group(2))
+        # a restart repeats iterations: keep the latest value of each
+        res = {k: ([i for i in sorted(v) if i <= float(t)],
+                   [v[i] for i in sorted(v) if i <= float(t)]) for k, v in res.items()}
         fig, ax = plt.subplots(figsize=(12, 6.2))
         for k, (x, y) in res.items():
             ax.semilogy(x, y, lw=1.1, label=k)
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Initial residual")
+        restarts = sorted({int(float(os.path.basename(os.path.dirname(f))))
+                           for f in glob.glob(os.path.join(case, "postProcessing", "coeffs_S1223", "*", "*.dat"))
+                           if os.path.basename(os.path.dirname(f)).replace(".", "").isdigit()} - {0})
+        for rs in restarts:
+            ax.axvline(rs, color="gray", ls=":", lw=1)
+            ax.text(rs, 2e-7, " restart from\n saved it. %d" % rs, fontsize=8, color="gray")
         st = status.get("status", "")
         ax.set_title("Residuals (simpleFoam, SIMPLEC)  -  run status: %s %s"
                      % (st, ("(" + status.get("reason", "") + ")") if st else ""), fontsize=10)
@@ -588,11 +608,73 @@ def main():
     fig.savefig(os.path.join(out, "08_mesh.png"), dpi=150)
     plt.close(fig)
 
+    mesh3d(mesh, geom, N, os.path.join(out, "09_mesh_3d.png"))
+
     # ---------------------------------------------------------- report
     write_report(out, results)
     print(json.dumps(results["coefficients"], indent=2))
     print(json.dumps(results["transition"], indent=2))
     print(json.dumps(results.get("yplus"), indent=2))
+
+
+def mesh3d(mesh, geom, ncells, path, span=0.30, nspan=12):
+    """3-D view: both wings extruded over an illustrative span with their
+    surface mesh, and the 2-D computational mesh on the symmetry plane."""
+    from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
+
+    xl, yl = (-0.06, 0.70), (-0.13, 0.13)
+    segs = []
+    for p in mesh.polys:
+        q = mesh.xy[np.r_[p, p[0]]]
+        if q[:, 0].max() < xl[0] or q[:, 0].min() > xl[1] or \
+                q[:, 1].max() < yl[0] or q[:, 1].min() > yl[1]:
+            continue
+        segs.append(np.c_[q, np.zeros(len(q))])
+    zs = np.linspace(0.0, span, nspan + 1)
+    light = np.array([0.3, 0.8, -0.5])
+    light /= np.linalg.norm(light)
+    fig = plt.figure(figsize=(16, 10))
+    views = [(fig.add_subplot(1, 1, 1, projection="3d"), 24, -58)]
+    for ax, elev, azim in views:
+        ax.add_collection3d(Line3DCollection(segs, colors="#2b2b2b", linewidths=0.12, alpha=0.8))
+        for a, b, base in (("up1", "lo1", "#8fb3e0"), ("up2", "lo2", "#e59a6b")):
+            for surf in (geom[a], geom[b]):
+                polys, cols = [], []
+                for i in range(len(surf) - 1):
+                    p0, p1 = surf[i], surf[i + 1]
+                    tvec = np.r_[p1 - p0, 0.0]
+                    nvec = np.cross(tvec, [0, 0, 1.0])
+                    nvec /= max(np.linalg.norm(nvec), 1e-12)
+                    shade = 0.45 + 0.55 * abs(nvec @ light)
+                    for k in range(nspan):
+                        polys.append([(p0[0], p0[1], zs[k]), (p1[0], p1[1], zs[k]),
+                                      (p1[0], p1[1], zs[k + 1]), (p0[0], p0[1], zs[k + 1])])
+                        c = np.array(matplotlib.colors.to_rgb(base)) * shade
+                        cols.append(np.clip(c, 0, 1))
+                pc = Poly3DCollection(polys, facecolors=cols, edgecolors="#1a1a1a",
+                                      linewidths=0.08)
+                ax.add_collection3d(pc)
+            # end caps outline at the far tip
+            ring = np.vstack([geom[a], geom[b][::-1]])
+            ax.plot(ring[:, 0], ring[:, 1], span, color="k", lw=0.8)
+        ax.set_xlim(*xl)
+        ax.set_ylim(*yl)
+        ax.set_zlim(0, span)
+        ax.set_box_aspect((xl[1] - xl[0], yl[1] - yl[0], span), zoom=1.45)
+        ax.view_init(elev=elev, azim=azim)
+        ax.set_xlabel("x [m]")
+        ax.set_ylabel("y [m]")
+        ax.set_zlabel("span z [m]")
+        ax.grid(False)
+    fig.suptitle("3-D view of the wing meshes: S1223 (blue, %d+%d surface elements) and NACA 0009 "
+                 "(orange, %d+%d), with the 2-D computational mesh on the z = 0 plane\n"
+                 "(the CFD mesh is one cell deep; the wings are drawn over a %.0f cm span for "
+                 "illustration)" % (P.N_SURF1, P.N_SURF1, P.N_SURF2, P.N_SURF2, span * 100),
+                 fontsize=11)
+    fig.subplots_adjust(left=0, right=1, bottom=0.04, top=0.93)
+    annotate(fig, ncells)
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
 
 
 def write_report(out, r):
@@ -618,14 +700,19 @@ def write_report(out, r):
                      % (lab, ch, c[k]["Cl"], c[k]["Cd"], c[k]["Cm"], c[k]["Cl_mean_last100"],
                         c[k]["Cl_std_last100"]))
     L += ["", "## Transition (x/c from each leading edge)", "",
-          "| airfoil | surface | transition onset (gamma > 0.5 & nut/nu > %g within %.1f mm of wall) | laminar separation (Cf<0) | reattachment |" % (P.NUT_RATIO_TR, P.TR_BAND * 1e3),
-          "|---|---|---|---|---|"]
+          "| airfoil | surface | transition onset | method | laminar separation (Cf<0) | reattachment |",
+          "|---|---|---|---|---|---|"]
     f = lambda v: "-" if v is None else "%.3f" % v
     for lab, d in r["transition"].items():
         for side, v in d.items():
-            L.append("| %s | %s | %s | %s | %s |" % (lab, side, f(v.get("x_transition")),
+            L.append("| %s | %s | %s | %s | %s | %s |" % (lab, side, f(v.get("x_transition")),
+                                                    v.get("method", "-"),
                                                     f(v.get("x_laminar_separation")),
                                                     f(v.get("x_reattachment"))))
+    L += ["", "Transition onset: first station where, within %.1f mm of the wall, the "
+          "intermittency > 0.5 and nut/nu > %g; when a laminar separation bubble closes "
+          "before that, the Cf minimum inside the bubble (separation-induced transition)."
+          % (P.TR_BAND * 1e3, P.NUT_RATIO_TR)]
     if r.get("yplus"):
         L += ["", "## y+", "", "| airfoil | max | mean |", "|---|---|---|"]
         for lab, v in r["yplus"].items():

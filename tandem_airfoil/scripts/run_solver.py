@@ -23,10 +23,40 @@ import time
 import params as P
 
 
-def coeff_file(case, name):
-    files = sorted(glob.glob(os.path.join(case, "postProcessing", name, "*", "*.dat")))
+def _start_time(path):
+    try:
+        return float(os.path.basename(os.path.dirname(path)))
+    except ValueError:
+        return -1.0
+
+
+def coeff_files(case, name):
+    """All forceCoeffs output files of a function object, one per (re)start."""
+    files = glob.glob(os.path.join(case, "postProcessing", name, "*", "*.dat"))
     files = [f for f in files if "coefficient" in os.path.basename(f) or "forceCoeffs" in os.path.basename(f)]
+    return sorted(files, key=_start_time)
+
+
+def coeff_file(case, name):
+    files = coeff_files(case, name)
     return files[-1] if files else None
+
+
+def read_all_coeffs(case, name):
+    """forceCoeffs history over all restarts (later runs override earlier ones)."""
+    rows = {}
+    cols = None
+    for f in coeff_files(case, name):
+        d = read_coeffs(f)
+        if not d:
+            continue
+        cols = list(d)
+        for k in range(len(d["Time"])):
+            rows[d["Time"][k]] = [d[c][k] for c in cols]
+    if not rows:
+        return {}
+    ts = sorted(rows)
+    return {c: [rows[t][i] for t in ts] for i, c in enumerate(cols)}
 
 
 def read_coeffs(path):
@@ -64,7 +94,11 @@ def main():
     case = os.path.abspath(sys.argv[1])
     nprocs = int(sys.argv[2])
     extra = sys.argv[3:]
-    log = open(os.path.join(case, "log.simpleFoam"), "w")
+    # append on a restart so the residual history stays complete; only the
+    # part written by this run is checked for divergence
+    logpath = os.path.join(case, "log.simpleFoam")
+    log_start = os.path.getsize(logpath) if os.path.exists(logpath) else 0
+    log = open(logpath, "a")
     if nprocs > 1:
         cmd = ["mpirun", "-np", str(nprocs)] + extra + ["simpleFoam", "-parallel", "-case", case]
     else:
@@ -76,12 +110,13 @@ def main():
     t0 = time.time()
     last_report, below, it_conv = 0, 0, None
     res_re = re.compile(r"Solving for (\w+), Initial residual = ([^,]+),")
-    logpath = os.path.join(case, "log.simpleFoam")
     while True:
         time.sleep(2.0)
         done = proc.poll() is not None
         # ---- divergence checks on the log
-        txt = open(logpath, errors="replace").read()
+        with open(logpath, errors="replace") as fh:
+            fh.seek(log_start)
+            txt = fh.read()
         k = txt.find("Starting time loop")
         tail = txt[max(k, len(txt) - 20000):] if k >= 0 else ""
         if re.search(r"\bnan\b|sigFpe::sigHandler|Floating point exception \(core|FOAM FATAL|"
@@ -98,8 +133,7 @@ def main():
             if bad:
                 status, reason = "diverged", "residual of %s blew up" % ",".join(bad)
         # ---- coefficient checks
-        cf = coeff_file(case, "coeffs_S1223")
-        cl = read_coeffs(cf).get("Cl", []) if cf else []
+        cl = read_all_coeffs(case, "coeffs_S1223").get("Cl", [])
         if cl and status == "running":
             if any(not math.isfinite(c) or abs(c) > 50 for c in cl[-5:]):
                 status, reason = "diverged", "Cl became non-physical (%g)" % cl[-1]
@@ -132,8 +166,8 @@ def main():
     proc.wait()
     end_time = int(float(re.search(r"endTime\s+([\d.eE+]+);",
                                    open(os.path.join(case, "system", "controlDict")).read()).group(1)))
-    cf = coeff_file(case, "coeffs_S1223")
-    n_done = len(read_coeffs(cf).get("Cl", [])) if cf else 0
+    hist = read_all_coeffs(case, "coeffs_S1223")
+    n_done = int(hist["Time"][-1]) if hist else 0
     if status == "running":
         if proc.returncode != 0:
             status, reason = "diverged", "solver exited with code %d" % proc.returncode

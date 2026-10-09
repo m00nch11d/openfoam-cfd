@@ -103,6 +103,34 @@ In the laminar boundary layer γ ≈ 0.02 and ν_t/ν < 0.1. The thin band keeps
 free stream (γ = 1) and the S1223 wake (which impinges on the NACA) out of the
 measure. Laminar separation and reattachment come from the sign of C_f.
 
+The γ-Reθ model triggers separation-induced transition through an internal
+separation intermittency, not the transported γ field. So when a laminar
+separation bubble closes before the criterion above is met, the transition point
+is taken at the C_f minimum inside the bubble. `results.md` states which method
+was used for each surface.
+
+## Reference results (8 MPI ranks, stopped at iteration 761 on request, no divergence)
+
+| body | ref. chord | Cl | Cd | Cm (c/4) |
+|---|---|---|---|---|
+| S1223 | 0.30 m | 0.993 (last 100 it.: 0.997 ± 0.004) | 0.0301 | −0.249 |
+| NACA 0009 | 0.10 m | −0.406 (last 100 it.: −0.384 ± 0.012) | −0.0152 | +0.002 |
+| both | 0.30 m | 0.858 | 0.0250 | −0.046 |
+
+* **NACA 0009 sign:** it sits in the S1223 downwash, so its lift is negative and
+  its tilted force vector gives a small thrust (Cd < 0).
+* **Transition (x/c):**
+  * S1223 upper: 0.49, inside a laminar separation bubble from 0.32 to 0.54.
+  * S1223 lower: 0.06, after a small leading-edge bubble from 0.02 to 0.09.
+  * NACA 0009 lower: 0.55, inside a bubble from 0.38 to 0.68.
+  * NACA 0009 upper: laminar to the trailing edge.
+* **y+:** maximum 0.70 (S1223) and 0.71 (NACA 0009).
+* **Convergence:** a 4-rank check run to 3000 iterations shows no drift after about
+  800 iterations. Cl only oscillates (S1223 1.008–1.017), the signature of the
+  unsteady separation bubbles in a steady RANS solution. The Cl stopping test
+  (1e-4 per iteration) is therefore not met; use the means over the last
+  iterations.
+
 ## Outputs (`results/`)
 
 | file | content |
@@ -115,6 +143,7 @@ measure. Laminar separation and reattachment come from the sign of C_f.
 | `06_residuals.png` | initial residuals of all equations, plus Cl history |
 | `07_pathlines.png` | 26 pathlines from x = −0.2 m to 60 cm behind the S1223 TE |
 | `08_mesh.png` | mesh overview and LE/TE close-ups |
+| `09_mesh_3d.png` | 3-D view: both wings with their surface mesh, and the 2-D mesh on the z = 0 plane |
 | `results.md`, `results.json` | Cl, Cd, Cm, transition, separation, y⁺ |
 
 Every figure is stamped with the airfoils, element counts, flow conditions,

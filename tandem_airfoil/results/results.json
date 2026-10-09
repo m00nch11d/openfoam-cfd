@@ -1,0 +1,108 @@
+{
+  "case": {
+    "airfoils": "S1223 (c=0.30 m) + NACA 0009 (c=0.10 m), gap 0.20 m",
+    "Re": 300000.0,
+    "U_inf": 14.607346938775509,
+    "AoA_deg": 0.0,
+    "rho": 1.225,
+    "nu": 1.4607346938775508e-05,
+    "Tu": 0.001,
+    "turbulence_model": "kOmegaSSTLM (k-omega SST + gamma-ReTheta transition)",
+    "cells": 66413,
+    "quads_2d": 66407,
+    "first_layer_S1223": 8.27010150018245e-06,
+    "first_layer_NACA0009": 6.385313382930204e-06,
+    "iterations": 761,
+    "run": {
+      "status": "stopped",
+      "reason": "stopped on user request at iteration 761 (8 MPI ranks); no divergence",
+      "iterations": 761,
+      "wall_time_s": 86.74565267562866,
+      "nprocs": 8
+    }
+  },
+  "coefficients": {
+    "coeffs_S1223": {
+      "Cl": 0.99297153664,
+      "Cd": 0.030051876054,
+      "Cm": -0.24868545921,
+      "Cl_mean_last100": 0.9967666344438,
+      "Cl_std_last100": 0.0035538387311520566,
+      "Cd_mean_last100": 0.02936892081136,
+      "Cd_std_last100": 0.00022282750145332706,
+      "Cm_mean_last100": -0.24793547356650003
+    },
+    "coeffs_NACA0009": {
+      "Cl": -0.40571428464,
+      "Cd": -0.015151166043,
+      "Cm": 0.0023950883105,
+      "Cl_mean_last100": -0.38383847479040006,
+      "Cl_std_last100": 0.012359341623908707,
+      "Cd_mean_last100": -0.01361413952316,
+      "Cd_std_last100": 0.001145074710280254,
+      "Cm_mean_last100": -0.00226120767268435
+    },
+    "coeffs_total": {
+      "Cl": 0.85773344176,
+      "Cd": 0.025001487373,
+      "Cm": -0.045562195969,
+      "Cl_mean_last100": 0.8688204761817001,
+      "Cl_std_last100": 0.007465699045455634,
+      "Cd_mean_last100": 0.02483087430359,
+      "Cd_std_last100": 0.00029497514594762904,
+      "Cm_mean_last100": -0.05626748146886999
+    }
+  },
+  "transition": {
+    "S1223": {
+      "upper": {
+        "x_transition": 0.48973187800000006,
+        "max_nut_over_nu_in_BL": 12.428734996227787,
+        "x_laminar_separation": 0.32305523535,
+        "x_reattachment": 0.5378540673333334,
+        "method": "gamma>0.5 & nut/nu>1",
+        "x_cf_min_before_rise": 0.505803313,
+        "x_max_cf_rise": 0.5218488385
+      },
+      "lower": {
+        "x_transition": 0.05980802891666667,
+        "max_nut_over_nu_in_BL": 14.190405223398907,
+        "x_laminar_separation": 0.022539348131666668,
+        "x_reattachment": 0.08523735361666666,
+        "method": "gamma>0.5 & nut/nu>1",
+        "x_cf_min_before_rise": 0.04131781961666667,
+        "x_max_cf_rise": 0.04481320798333333
+      }
+    },
+    "NACA 0009": {
+      "upper": {
+        "x_transition": 0.996032469,
+        "max_nut_over_nu_in_BL": 0.26399195152704824,
+        "x_laminar_separation": 0.9753382415,
+        "x_reattachment": 0.9979319945000009,
+        "method": "bubble: Cf minimum",
+        "x_cf_min_before_rise": 0.6388106534999993,
+        "x_max_cf_rise": 0.6388106534999993
+      },
+      "lower": {
+        "x_transition": 0.5489627959999999,
+        "max_nut_over_nu_in_BL": 5.465490575025148,
+        "x_laminar_separation": 0.3816694949999999,
+        "x_reattachment": 0.6821158235000002,
+        "method": "bubble: Cf minimum",
+        "x_cf_min_before_rise": 0.5489627959999999,
+        "x_max_cf_rise": 0.8250268655000004
+      }
+    }
+  },
+  "yplus": {
+    "S1223": {
+      "max": 0.6990134346,
+      "mean": 0.185319695726225
+    },
+    "NACA 0009": {
+      "max": 0.713875158,
+      "mean": 0.13306838493865
+    }
+  }
+}
