@@ -404,8 +404,8 @@ def render_3d(internal, wing):
     ys_ = yv[~tip]
     pl.add_text(f"y+ on the wing surface: max {ys_.max():.2f}, mean {ys_.mean():.3f}, "
                 f"{(ys_ < 1).mean()*100:.1f}% of faces < 1\n"
-                f"(flat tip cap, resolved only by the 15.6 mm spanwise cell: "
-                f"mean y+ {yv[tip].mean():.0f}, not shown)", font_size=11, color="black")
+                f"(flat tip cap, first spanwise cell {P.TIP_DY_FIRST * 1e3:.3g} mm: "
+                f"mean y+ {yv[tip].mean():.2g}, not shown)", font_size=11, color="black")
     iso_camera(pl)
     pl.screenshot(os.path.join(OUT, "wing_3d_yplus.png"))
     pl.close()
@@ -440,7 +440,9 @@ def main():
 
     rows = []
     for k, (y, kind) in enumerate(P.stations()):
-        ys = min(max(y, 1e-4), P.B - 1e-4)
+        # the tip peak is sampled half a wing cell inboard: exactly at the
+        # square tip edge the section integrates the edge suction (cd < 0)
+        ys = min(max(y, 1e-4), P.B - 0.5 * P.DY_WING)
         name = f"S{k:02d}_y{y*1000:06.1f}mm_{kind}"
         sec = section(wing, ys, tau_sign)
         cl, cd, cm = station_coeffs(sec, ys)
