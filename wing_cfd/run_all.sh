@@ -62,8 +62,12 @@ if [ $INSTALL_PIP = 1 ]; then
 fi
 
 # ------------------------------------------------------------ 3. OpenFOAM env
-# The Ubuntu package keeps its etc/ files in /usr/share/openfoam
-export WM_PROJECT_DIR=/usr/share/openfoam FOAM_ETC=/usr/share/openfoam/etc
+# Use an OpenFOAM environment that is already sourced (openfoam.com builds);
+# otherwise the Ubuntu package, which keeps its etc/ files in /usr/share/openfoam
+if [ -z "${WM_PROJECT_DIR:-}" ] && [ -d /usr/share/openfoam/etc ]; then
+    export WM_PROJECT_DIR=/usr/share/openfoam FOAM_ETC=/usr/share/openfoam/etc
+fi
+echo "OpenFOAM: ${WM_PROJECT_DIR:-not set} ($(command -v simpleFoam || echo 'simpleFoam missing'))"
 export PYVISTA_OFF_SCREEN=true
 command -v simpleFoam >/dev/null || { echo "simpleFoam not found (install openfoam)"; exit 1; }
 SHIM=$HERE/shim/libdigestshim.so

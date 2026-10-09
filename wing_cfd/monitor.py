@@ -28,8 +28,7 @@ case = sys.argv[1] if len(sys.argv) > 1 else "case"
 log = os.path.join(case, "log.simpleFoam")
 coef_dir = os.path.join(case, "postProcessing/forceCoeffs")
 status_file = os.path.join(case, "run_status.txt")
-env = dict(os.environ, WM_PROJECT_DIR="/usr/share/openfoam",
-           FOAM_ETC="/usr/share/openfoam/etc")
+env = dict(os.environ)          # OpenFOAM environment set by run_all.sh
 
 
 def stop(reason):
