@@ -7,3 +7,5 @@ constant/polyMesh/
 log.*
 __pycache__/
 *.pyc
+tandem_airfoil/run/
+tandem_airfoil/.venv/
