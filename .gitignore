@@ -9,3 +9,4 @@ __pycache__/
 *.pyc
 tandem_airfoil/run/
 tandem_airfoil/.venv/
+*.pos
