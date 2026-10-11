@@ -9,6 +9,9 @@
 #     ./Allrun.sh -np 12 -maxiter 1500
 #     ./Allrun.sh -cltol 1e-3     # Cl convergence tolerance (relative change
 #                                 # per iteration, held for 50 iterations)
+#     ./Allrun.sh -noanim         # skip the pathline animation
+#     ./Allrun.sh -animonly       # only animate the pathlines of an existing
+#                                 # ./run (no meshing, no solving)
 #
 # Results (PNG figures, results.md, results.json) are written to ./results
 # The OpenFOAM case is kept in ./run (open run/case.foam in ParaView).
@@ -23,12 +26,16 @@ HERE=$PWD
 
 NP=8
 MAXIT=1000
+ANIM=1
+ANIMONLY=0
 while [ $# -gt 0 ]; do
     case "$1" in
         -np) NP="$2"; shift 2 ;;
         -maxiter) MAXIT="$2"; shift 2 ;;
         -cltol) export CL_TOL="$2"; shift 2 ;;
-        -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+        -noanim) ANIM=0; shift ;;
+        -animonly) ANIMONLY=1; shift ;;
+        -h|--help) sed -n '2,/^[^#]/p' "$0" | sed '$d'; exit 0 ;;
         *) echo "unknown option $1"; exit 1 ;;
     esac
 done
@@ -66,8 +73,23 @@ if ! $PY -c "import gmsh, numpy, scipy, matplotlib" >/dev/null 2>&1; then
 fi
 $PY scripts/params.py
 
-#------------------------------------------------------------------ case
+animate() {
+    say "pathline animation (GIF, plus MP4 if ffmpeg is installed)"
+    $PY scripts/animate_pathlines.py "$RUN" "$HERE/results" "$RUN/tandem_geom.npz"
+}
+
 RUN=$HERE/run
+if [ "$ANIMONLY" -eq 1 ]; then
+    [ -f "$RUN/tandem_geom.npz" ] || die "no existing case in $RUN - run ./Allrun.sh first"
+    if [ -d "$RUN/processor0" ] && ! ls -d "$RUN"/[1-9]* >/dev/null 2>&1; then
+        (cd "$RUN" && reconstructPar -latestTime > log.reconstructPar 2>&1) || die "reconstructPar failed"
+    fi
+    animate
+    say "done - animation in $HERE/results"
+    exit 0
+fi
+
+#------------------------------------------------------------------ case
 rm -rf "$RUN"
 mkdir -p "$RUN"
 
@@ -119,5 +141,6 @@ fi
 #------------------------------------------------------------------ post
 say "post-processing"
 $PY scripts/post.py "$RUN" "$HERE/results" "$RUN/tandem_geom.npz"
+[ "$ANIM" -eq 1 ] && animate
 say "done - results in $HERE/results"
 cat "$HERE/results/results.md"

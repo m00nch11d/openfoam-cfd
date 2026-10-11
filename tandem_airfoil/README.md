@@ -10,6 +10,9 @@ edge. Air at ISA sea level, Re = 3·10⁵ (based on the S1223 chord), AoA = 0°.
 cd tandem_airfoil
 ./Allrun.sh                      # 8 MPI ranks, max 1000 iterations
 ./Allrun.sh -np 16 -maxiter 1500 # options
+./Allrun.sh -noanim              # skip the pathline animation
+./Allrun.sh -animonly            # only (re)make the pathline animation from an
+                                 # existing ./run - no meshing, no solving
 ```
 
 The script:
@@ -144,6 +147,7 @@ was used for each surface.
 | `07_pathlines.png` | 26 pathlines from x = −0.2 m to 60 cm behind the S1223 TE |
 | `08_mesh.png` | mesh overview and LE/TE close-ups |
 | `09_mesh_3d.png` | 3-D view: both wings with their surface mesh, and the 2-D mesh on the z = 0 plane |
+| `10_pathlines_animation.gif` / `.mp4` | animated particle streams (26 seeds, continuous release, RK2 in physical time); MP4 only if `ffmpeg` is installed |
 | `results.md`, `results.json` | Cl, Cd, Cm, transition, separation, y⁺ |
 
 Every figure is stamped with the airfoils, element counts, flow conditions,
@@ -159,5 +163,6 @@ scripts/mesh.py       mesh generator (gmsh + structured quad layers -> msh2)
 scripts/setup_case.py OpenFOAM dictionaries
 scripts/run_solver.py parallel run + divergence / Cl-convergence monitor
 scripts/post.py       coefficients, transition, figures
+scripts/animate_pathlines.py  pathline animation (GIF / MP4) from an existing solution
 results/              results of the reference run
 ```
