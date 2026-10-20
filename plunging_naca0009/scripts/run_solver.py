@@ -4,10 +4,10 @@ parallel and watch it.
 
  * divergence (NaN / FPE / fatal error / exploding residuals, Courant number
    or force coefficients / solver crash) -> run stopped, reported, exit code 2
- * unsteady convergence: after every completed plunge cycle the cycle
-   statistics (Cl max, Cl min, Cl rms, mean Cd) are compared with those of
-   the previous cycle; when all change by less than CYCLE_TOL (relative to
-   the cycle range) the run is stopped cleanly ('stopAt writeNow')
+ * unsteady convergence: after every completed plunge cycle the Cl
+   statistics (Cl max, Cl min, Cl rms) are compared with those of the
+   previous cycle; when each changes by less than CYCLE_TOL of its own value
+   the run is stopped cleanly ('stopAt writeNow')
  * otherwise the run ends at the cycle limit
 
 usage: python3 run_solver.py <caseDir> <steady|unsteady> <nProcs> [extra mpirun args]
@@ -91,12 +91,13 @@ def cycle_stats(d):
 
 
 def cycle_change(a, b):
-    """Largest relative change of the cycle statistics from cycle a to b."""
-    cl_range = max(b["Cl_max"] - b["Cl_min"], 1e-6)
-    cd_range = max(b["Cd_max"] - b["Cd_min"], 1e-6)
-    ch = {k: abs(b[k] - a[k]) / cl_range for k in ("Cl_max", "Cl_min", "Cl_rms")}
-    ch["Cd_mean"] = abs(b["Cd_mean"] - a["Cd_mean"]) / cd_range
-    return max(ch.values()), ch
+    """Largest relative change of the Cl cycle statistics from cycle a to b,
+    each relative to its own magnitude (the user criterion is on Cl). The
+    change of the mean Cd is returned for information only."""
+    ch = {k: abs(b[k] - a[k]) / max(abs(b[k]), 1e-6) for k in ("Cl_max", "Cl_min", "Cl_rms")}
+    info = dict(ch)
+    info["Cd_mean (info)"] = abs(b["Cd_mean"] - a["Cd_mean"]) / max(abs(b["Cd_mean"]), 1e-6)
+    return max(ch.values()), info
 
 
 def set_stop(case):
@@ -166,8 +167,9 @@ def main():
                     msg = ("  cycle %d: Cl %.3f..%.3f (rms %.3f), mean Cd %.4f"
                            % (s["cycle"], s["Cl_min"], s["Cl_max"], s["Cl_rms"], s["Cd_mean"]))
                     if len(stats) >= 2:
-                        mx, _ = cycle_change(stats[-2], stats[-1])
-                        msg += ", change vs previous cycle %.1f %%" % (100 * mx)
+                        mx, info = cycle_change(stats[-2], stats[-1])
+                        msg += ", change vs previous cycle: " + ", ".join(
+                            "%s %.1f %%" % (k, 100 * v) for k, v in info.items())
                         if s["cycle"] >= P.MIN_CYCLES and mx < P.CYCLE_TOL:
                             status = "converged"
                             reason = ("cycle statistics changed by %.1f %% (< %.0f %%) from cycle "

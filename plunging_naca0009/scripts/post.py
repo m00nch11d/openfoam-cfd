@@ -32,7 +32,7 @@ from scipy.spatial import cKDTree  # noqa: E402
 
 import params as P  # noqa: E402
 from foamio import Mesh2D, read_field, time_dirs  # noqa: E402
-from run_solver import cycle_stats, read_all_coeffs  # noqa: E402
+from run_solver import cycle_change, cycle_stats, read_all_coeffs  # noqa: E402
 
 Q_INF = 0.5 * P.U_INF ** 2
 PHASES = (0, 90, 180, 270)
@@ -85,10 +85,15 @@ def surfaces(mesh, geom):
     return res, fc, own
 
 
-def transition(x, cf, nutr, gmax):
-    """Transition onset and laminar bubble on one surface (x = x/c, LE -> TE)."""
+def transition(x, cf, nutr, gmax, cp):
+    """Transition onset and laminar bubble on one surface (x = x/c, LE -> TE).
+    At large effective AoA the stagnation point moves onto the pressure-side
+    surface; the reversed wall flow ahead of it is not a separation, so the
+    search starts behind the stagnation point (Cp maximum)."""
     out = {}
-    m = x > 0.02
+    x_stag = float(x[np.argmax(cp)]) if cp.max() > 0.8 else 0.0
+    out["x_stagnation"] = x_stag
+    m = x > max(0.02, x_stag + 0.005)
     k = np.where(m & (nutr > P.NUT_RATIO_TR) & (gmax > 0.5))[0]
     out["x_transition"] = float(x[k[0]]) if len(k) else None
     out["method"] = "gamma>0.5 & nut/nu>%g" % P.NUT_RATIO_TR
@@ -145,7 +150,7 @@ class Snapshot:
             else:
                 cf = np.zeros(len(s["idx"]))
             e["cf"] = cf
-            e["tr"] = transition(s["xc"], cf, nr[s["idx"]], gm[s["idx"]])
+            e["tr"] = transition(s["xc"], cf, nr[s["idx"]], gm[s["idx"]], e["cp"])
             self.surf[side] = e
 
 
@@ -340,7 +345,7 @@ def fig_coeffs(out, d, N):
     ax.set_title("last cycle vs phase")
     ax.legend(fontsize=8)
     ax = axs[1, 0]
-    ncyc = int(np.ceil(t[-1] / P.PERIOD))
+    ncyc = int(np.floor(t[-1] / P.PERIOD + 1e-6))      # complete cycles only
     for n in range(ncyc):
         m = (t > n * P.PERIOD) & (t <= (n + 1) * P.PERIOD)
         ax.plot(al[m], d["Cl"][m], lw=0.9 if n == ncyc - 1 else 0.6,
@@ -676,10 +681,17 @@ def write_report(out, r):
          % (lc["thrust_coefficient_Ct"], lc["power_coefficient"],
             f(lc["propulsive_efficiency"], "%.3f")), "",
          "## Cycle-to-cycle convergence", "",
-         "| cycle | Cl min | Cl max | Cl rms | mean Cd |", "|---|---|---|---|---|"]
+         "| cycle | Cl min | Cl max | Cl rms | mean Cd | largest Cl-statistic change vs previous "
+         "cycle |", "|---|---|---|---|---|---|"]
+    prev = None
     for s in r["cycles"]:
-        L.append("| %d | %.3f | %.3f | %.3f | %.4f |" % (s["cycle"], s["Cl_min"], s["Cl_max"],
-                                                        s["Cl_rms"], s["Cd_mean"]))
+        chg = "-" if prev is None else "%.1f %%" % (100 * cycle_change(prev, s)[0])
+        L.append("| %d | %.3f | %.3f | %.3f | %.4f | %s |" % (s["cycle"], s["Cl_min"], s["Cl_max"],
+                                                             s["Cl_rms"], s["Cd_mean"], chg))
+        prev = s
+    L += ["", "Convergence criterion: Cl max, Cl min and Cl rms of a cycle each within %.0f %% of "
+          "their values in the previous cycle (checked from cycle %d on)."
+          % (100 * P.CYCLE_TOL, P.MIN_CYCLES)]
     L += ["", "## Four phases of the last cycle", "",
           "| phase | y [m] | dy/dt [m/s] | alpha_eff | Cl | Cd | Cm | transition upper | "
           "transition lower |", "|---|---|---|---|---|---|---|---|---|"]

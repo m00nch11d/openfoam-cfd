@@ -96,8 +96,8 @@ N_OUTER = 6
 RELAX_P = 0.5                     # under-relaxation of the non-final outer iterations
 RELAX_EQ = 0.8
 SNAPSHOTS_PER_CYCLE = 40          # fields written per cycle (last cycle kept)
-# periodic convergence: the cycle statistics (Cl rms, Cl max, Cl min, mean Cd)
-# change by less than CYCLE_TOL between two consecutive cycles
+# periodic convergence: the Cl cycle statistics (Cl max, Cl min, Cl rms) each
+# change by less than CYCLE_TOL of their own value between two consecutive cycles
 CYCLE_TOL = float(os.environ.get("CYCLE_TOL", "0.10"))
 NUT_RATIO_TR = 1.0                # transition detection (post-processing)
 TR_BAND = 5.0e-4

@@ -126,10 +126,11 @@ in the thin near-wall cells.
   report, and no post-processing is done.
 * **Convergence:** "Cl change < 10 %" is applied the way a periodic flow
   requires: cycle to cycle. After each completed cycle, the monitor compares
-  that cycle's statistics with the previous cycle's. The statistics are Cl max,
-  Cl min and Cl rms (relative to the cycle's Cl range) and the mean Cd
-  (relative to the Cd range). The run stops when all change by less than 10 %,
-  checked from cycle 3 on.
+  that cycle's Cl max, Cl min and Cl rms with the previous cycle's. The run
+  stops when each has changed by less than 10 % of its own value, checked from
+  cycle 3 on. The cycle-mean Cd is reported but not used for stopping: it is a
+  small difference of large thrust and drag phases and fluctuates much more
+  from cycle to cycle.
 * **Limit:** 5 cycles (10,000 time steps). Each time step is itself iterated
   with 6 PIMPLE outer correctors.
 
