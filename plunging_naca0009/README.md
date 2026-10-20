@@ -128,9 +128,14 @@ in the thin near-wall cells.
   requires: cycle to cycle. After each completed cycle, the monitor compares
   that cycle's Cl max, Cl min and Cl rms with the previous cycle's. The run
   stops when each has changed by less than 10 % of its own value, checked from
-  cycle 3 on. The cycle-mean Cd is reported but not used for stopping: it is a
-  small difference of large thrust and drag phases and fluctuates much more
-  from cycle to cycle.
+  cycle 3 on.
+* **Two-cycle periodicity:** dynamic stall can lock into a pattern that repeats
+  every *second* cycle, with the leading-edge vortex alternating between two
+  shedding patterns. So the cycle two back is also compared, and agreement
+  within 10 % there counts as convergence too.
+* **Mean Cd:** reported but not used for stopping. It is a small difference
+  of large thrust and drag phases, and it fluctuates much more from cycle to
+  cycle than Cl.
 * **Limit:** 5 cycles (10,000 time steps). Each time step is itself iterated
   with 6 PIMPLE outer correctors.
 

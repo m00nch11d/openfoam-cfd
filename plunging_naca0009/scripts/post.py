@@ -585,6 +585,14 @@ def main():
         thrust_coefficient_Ct=ct, power_coefficient=cp_in,
         propulsive_efficiency=(ct / cp_in) if cp_in > 1e-9 else None)
     res["cycles"] = cyc
+    two = d["Time"] > d["Time"][-1] - 2 * P.PERIOD + 1e-9
+    if d["Time"][-1] > 2.5 * P.PERIOD:
+        cp2 = float(np.mean(-d["Cl"][two] * vv[two] / P.U_INF))
+        cd2 = float(np.mean(d["Cd"][two]))
+        res["last_two_cycles"] = dict(
+            Cl_rms=float(np.sqrt(np.mean((d["Cl"][two] - d["Cl"][two].mean()) ** 2))),
+            Cd_mean=cd2, power_coefficient=cp2,
+            propulsive_efficiency=(-cd2 / cp2) if cp2 > 1e-9 else None)
     res["phases"] = {}
     for ph in PHASES:
         s = nearest_phase(snaps, ph)
@@ -681,17 +689,24 @@ def write_report(out, r):
          % (lc["thrust_coefficient_Ct"], lc["power_coefficient"],
             f(lc["propulsive_efficiency"], "%.3f")), "",
          "## Cycle-to-cycle convergence", "",
-         "| cycle | Cl min | Cl max | Cl rms | mean Cd | largest Cl-statistic change vs previous "
-         "cycle |", "|---|---|---|---|---|---|"]
-    prev = None
-    for s in r["cycles"]:
-        chg = "-" if prev is None else "%.1f %%" % (100 * cycle_change(prev, s)[0])
-        L.append("| %d | %.3f | %.3f | %.3f | %.4f | %s |" % (s["cycle"], s["Cl_min"], s["Cl_max"],
-                                                             s["Cl_rms"], s["Cd_mean"], chg))
-        prev = s
+         "| cycle | Cl min | Cl max | Cl rms | mean Cd | largest Cl change vs previous cycle "
+         "| vs two cycles before |", "|---|---|---|---|---|---|---|"]
+    cy = r["cycles"]
+    for k, s in enumerate(cy):
+        c1 = "-" if k < 1 else "%.1f %%" % (100 * cycle_change(cy[k - 1], s)[0])
+        c2 = "-" if k < 2 else "%.1f %%" % (100 * cycle_change(cy[k - 2], s)[0])
+        L.append("| %d | %.3f | %.3f | %.3f | %.4f | %s | %s |"
+                 % (s["cycle"], s["Cl_min"], s["Cl_max"], s["Cl_rms"], s["Cd_mean"], c1, c2))
     L += ["", "Convergence criterion: Cl max, Cl min and Cl rms of a cycle each within %.0f %% of "
-          "their values in the previous cycle (checked from cycle %d on)."
+          "their values one cycle earlier (period 1) or two cycles earlier (period 2, a pattern "
+          "dynamic stall can lock into), checked from cycle %d on."
           % (100 * P.CYCLE_TOL, P.MIN_CYCLES)]
+    if r.get("last_two_cycles"):
+        t2 = r["last_two_cycles"]
+        L += ["", "Averages over the last two cycles: Cl rms %.3f, mean Cd %.4f (Ct = %.4f), "
+              "power coefficient %.4f, propulsive efficiency %s."
+              % (t2["Cl_rms"], t2["Cd_mean"], -t2["Cd_mean"], t2["power_coefficient"],
+                 f(t2["propulsive_efficiency"], "%.3f"))]
     L += ["", "## Four phases of the last cycle", "",
           "| phase | y [m] | dy/dt [m/s] | alpha_eff | Cl | Cd | Cm | transition upper | "
           "transition lower |", "|---|---|---|---|---|---|---|---|---|"]

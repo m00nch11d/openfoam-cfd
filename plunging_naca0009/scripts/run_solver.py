@@ -170,11 +170,18 @@ def main():
                         mx, info = cycle_change(stats[-2], stats[-1])
                         msg += ", change vs previous cycle: " + ", ".join(
                             "%s %.1f %%" % (k, 100 * v) for k, v in info.items())
-                        if s["cycle"] >= P.MIN_CYCLES and mx < P.CYCLE_TOL:
+                        # dynamic stall can lock into a pattern that repeats every
+                        # second cycle: also compare with the cycle before last
+                        mx2 = cycle_change(stats[-3], stats[-1])[0] if len(stats) >= 3 else 9.9
+                        if len(stats) >= 3:
+                            msg += "; vs two cycles before: %.1f %%" % (100 * mx2)
+                        if s["cycle"] >= P.MIN_CYCLES and min(mx, mx2) < P.CYCLE_TOL:
                             status = "converged"
-                            reason = ("cycle statistics changed by %.1f %% (< %.0f %%) from cycle "
-                                      "%d to %d" % (100 * mx, 100 * P.CYCLE_TOL, s["cycle"] - 1,
-                                                    s["cycle"]))
+                            per = 1 if mx < P.CYCLE_TOL else 2
+                            reason = ("Cl statistics changed by %.1f %% (< %.0f %%) from cycle %d "
+                                      "to %d (periodic over %d cycle%s)"
+                                      % (100 * min(mx, mx2), 100 * P.CYCLE_TOL, s["cycle"] - per,
+                                         s["cycle"], per, "s" if per > 1 else ""))
                             set_stop(case)
                     print(msg, flush=True)
         if status == "diverged":
