@@ -10,3 +10,5 @@ __pycache__/
 tandem_airfoil/run/
 tandem_airfoil/.venv/
 *.pos
+plunging_naca0009/run/
+plunging_naca0009/.venv/
