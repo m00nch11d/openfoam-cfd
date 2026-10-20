@@ -162,6 +162,34 @@ in the thin near-wall cells.
   time-dependent flow. Snapshots are interpolated in phase, and the mesh
   position is known exactly from y(t).
 
+## Reference results (5 cycles, 4 MPI ranks)
+
+Full tables are in `results/results.md`.
+
+| quantity (last cycle) | value |
+|---|---|
+| Cl | −2.68 … +2.16 (rms 1.35, mean −0.08) |
+| Cd | −0.167 … +0.184, **mean −0.032 (net thrust, Ct = 0.032)** |
+| Cm (c/4, +nose-up) | −0.17 … +0.59 |
+| propulsive efficiency Ct / Cp_in | 0.09 (0.10 averaged over the last two cycles) |
+| max y⁺ over the cycle | 0.73 (lower surface), 0.53 (upper surface) |
+
+* **Phase behaviour:**
+  * At mid-stroke (effective AoA ±21°) the suction side transitions at
+    x/c ≈ 0.02, just behind the suction peak, and a leading-edge (dynamic
+    stall) vortex forms and travels over the airfoil. It shows as the moving
+    Cp bump near x/c ≈ 0.2.
+  * The pressure side stays laminar.
+  * At the top and bottom of the stroke, transition retreats to
+    x/c ≈ 0.1–0.2, inside laminar separation bubbles.
+* **Convergence:** the run reached the 5-cycle limit without meeting the 10 %
+  criterion. From cycle 2 on, Cl rms stays between 1.21 and 1.42, but the peak
+  values vary by 7–17 % from cycle to cycle (cycle 4 vs 2: 3.7 %; cycle 5
+  vs 3: 10.9 %). The dynamic-stall vortex shedding is not strictly periodic at
+  this effective AoA, so expect cycle-to-cycle scatter of this size. The mean
+  Cd varies from −0.016 to −0.043 between cycles (about −0.032 averaged over
+  cycles 2–5). The multi-cycle averages are the robust numbers.
+
 ## Outputs (`results/`)
 
 | file | content |
