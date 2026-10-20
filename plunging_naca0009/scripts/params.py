@@ -86,13 +86,15 @@ RETHETA_INF = (1173.51 - 589.428 * _tu + 0.2196 / _tu ** 2
 # ------------------------------------------------------------------ solver / run control
 N_PROCS = 8
 STEADY_ITER = 400                 # simpleFoam initialisation (static airfoil)
-STEPS_PER_CYCLE = 3000            # time steps per plunge period
+STEPS_PER_CYCLE = 2000            # time steps per plunge period
 DT = PERIOD / STEPS_PER_CYCLE
 MAX_CYCLES = 5                    # hard limit
 MIN_CYCLES = 3                    # the first cycle is a start-up transient
-N_OUTER = 3                       # PIMPLE outer correctors per time step
-RELAX_P = 0.3                     # under-relaxation of the non-final outer iterations
-RELAX_EQ = 0.7
+# PIMPLE: 6 outer correctors per time step make each step (nearly) converged;
+# with only 3 the run diverged when the dynamic-stall vortex reached the TE
+N_OUTER = 6
+RELAX_P = 0.5                     # under-relaxation of the non-final outer iterations
+RELAX_EQ = 0.8
 SNAPSHOTS_PER_CYCLE = 40          # fields written per cycle (last cycle kept)
 # periodic convergence: the cycle statistics (Cl rms, Cl max, Cl min, mean Cd)
 # change by less than CYCLE_TOL between two consecutive cycles

@@ -275,10 +275,10 @@ def fig_residuals(out, case, N, status):
     log = os.path.join(case, "log.pimpleFoam")
     if not os.path.exists(log):
         return
-    res, co, step, seen = {}, [], 0, set()
+    res, co, step, seen = {}, [], 0.0, set()
     for line in open(log, errors="replace"):
         if line.startswith("Time = "):
-            step += 1
+            step = float(line.split()[2]) / P.PERIOD       # time in cycles
             seen = set()
             continue
         if line.startswith("Courant Number"):
@@ -296,18 +296,18 @@ def fig_residuals(out, case, N, status):
     fig, axs = plt.subplots(2, 1, figsize=(14, 9), sharex=True,
                             gridspec_kw=dict(height_ratios=[2.2, 1]))
     for k, (x, y) in res.items():
-        axs[0].semilogy(np.array(x) / P.STEPS_PER_CYCLE, y, lw=0.6, label=k)
+        axs[0].semilogy(x, y, lw=0.6, label=k)
     axs[0].set_ylabel("initial residual (1st outer iteration)")
     axs[0].legend(ncol=7, fontsize=8)
     axs[0].set_title("Residuals per time step (pimpleFoam, %d outer correctors) - run status: %s"
                      % (P.N_OUTER, status.get("reason", "")), fontsize=10)
     if co:
         c = np.array(co)
-        axs[1].semilogy(c[:, 0] / P.STEPS_PER_CYCLE, c[:, 1], "k-", lw=0.4)
+        axs[1].semilogy(c[:, 0], c[:, 1], "k-", lw=0.4)
     axs[1].set_ylabel("max Courant number")
     axs[1].set_xlabel("time / T  (plunge cycles)")
     for ax in axs:
-        for n in range(1, int(step / P.STEPS_PER_CYCLE) + 1):
+        for n in range(1, int(step) + 1):
             ax.axvline(n, color="gray", ls=":", lw=0.8)
     fig.tight_layout(rect=(0, 0.07, 1, 1))
     annotate(fig, N)

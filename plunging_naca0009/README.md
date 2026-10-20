@@ -84,15 +84,40 @@ cycle is checked in post-processing and reported in `results.md` and
 
 ### Time stepping and stability
 
-* **Time step:** Δt = T/3000 = 1.11·10⁻⁴ s, which is about 185 steps per
-  chord-transit time.
-* **Smooth start:** the motion is supplied as a table (`tabulated6DoFMotion`)
-  with the amplitude ramped smoothly over the first half cycle, so the motion
-  starts with zero velocity. An impulsive start at 5.65 m/s against 4.5 µm wall
-  cells made the run diverge at once.
-* **PIMPLE settings:** 3 outer correctors with under-relaxation (p 0.3,
-  equations 0.7, final iteration 1). With less relaxation or a looser final
-  pressure tolerance, the run diverged at the trailing edge.
+What it took to get a stable run, in the order the problems appeared:
+
+1. **Impulsive start.** `oscillatingLinearMotion` starts at full plunge speed
+   (5.65 m/s) against 4.5 µm wall cells, and the run diverged immediately. The
+   motion is now a table (`tabulated6DoFMotion`, one entry per time step) with
+   the amplitude ramped smoothly over the first half cycle.
+2. **Trailing-edge cells.** The sine distribution was eased from 90 % to 80 %
+   cosine weight, giving TE cells of about 0.3 mm, and the wake cut starts at
+   twice the TE spacing. This lowers the Courant number in the thin
+   TE/wake-cut cells.
+3. **Dynamic stall.** With 3 PIMPLE outer iterations per step, the run went
+   through the first downstroke and then diverged at t ≈ 0.205 s. That is when
+   the leading-edge (dynamic-stall) vortex reaches the trailing edge
+   (Cl ≈ 2, effective AoA ≈ +20°). Restarts from t = 0.200 s compared four
+   remedies:
+
+| variant | result |
+|---|---|
+| velocity limiter (`limitVelocity`, 3 U∞) + upwind turbulence convection | survives, but the limiter clipped up to ~300 cells continuously and Cl was noisy: rejected |
+| 12 outer iterations (2 correctors, relaxation 0.3) | stable, smooth Cl, 4 s/step |
+| 8 outer × 1 corrector | crashed |
+| **6 outer × 2 correctors, relaxation p 0.5 / equations 0.8** | **same Cl as the 12-outer run, 2.3 s/step: used** |
+| 4 outer, same relaxation | noisy Cl: rejected |
+
+With converged outer iterations, Δt = T/2000 = 1.67·10⁻⁴ s (about 120 steps
+per chord-transit time) reproduces the T/3000 result within about 3 %, so
+2000 steps per cycle are used. The maximum Courant number is 20–45, all of it
+in the thin near-wall cells.
+
+> **Reference run note:** the run in `results/` covered the first 0.2 s
+> (60 % of the start-up cycle) with the earlier settings (3000 steps per cycle,
+> 3 outer iterations). It was then continued from t = 0.2 s with the final
+> settings above. All reported cycles after the first used the final settings.
+> `./Allrun.sh` uses the final settings from t = 0.
 
 ### Run control (`scripts/run_solver.py`)
 
@@ -105,8 +130,8 @@ cycle is checked in post-processing and reported in `results.md` and
   Cl min and Cl rms (relative to the cycle's Cl range) and the mean Cd
   (relative to the Cd range). The run stops when all change by less than 10 %,
   checked from cycle 3 on.
-* **Limit:** 5 cycles (15,000 time steps). Each time step is itself iterated
-  with 3 PIMPLE outer correctors.
+* **Limit:** 5 cycles (10,000 time steps). Each time step is itself iterated
+  with 6 PIMPLE outer correctors.
 
 ### Post-processing (`scripts/post.py`, `scripts/animate.py`)
 
