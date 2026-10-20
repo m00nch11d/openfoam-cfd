@@ -652,8 +652,8 @@ def fig_transition(out, snaps, N):
     ax.set_xlabel("phase [deg]  (y = A sin(phase))")
     ax.set_ylabel("x/c")
     ax.set_title("Transition point and laminar separation over the last cycle "
-                 "(missing marker: none found on that surface)")
-    ax.legend(fontsize=8, ncol=2, loc="lower left")
+                 "(missing marker: none found on that surface)", pad=28)
+    ax.legend(fontsize=8, ncol=4, loc="lower center", bbox_to_anchor=(0.5, 1.07), frameon=False)
     fig.tight_layout(rect=(0, 0.08, 1, 1))
     annotate(fig, N)
     fig.savefig(os.path.join(out, "11_transition_vs_phase.png"), dpi=140)
