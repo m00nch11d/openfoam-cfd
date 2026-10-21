@@ -12,3 +12,5 @@ tandem_airfoil/.venv/
 *.pos
 plunging_naca0009/run/
 plunging_naca0009/.venv/
+plunging_naca0009/smoketest_run/
+plunging_naca0009/smoketest_results/

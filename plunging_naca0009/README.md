@@ -21,7 +21,14 @@ cd plunging_naca0009
 ./Allrun.sh -cycletol 0.05        # periodic-convergence tolerance (default 0.10)
 ./Allrun.sh -noanim               # skip the animation
 ./Allrun.sh -postonly             # redo figures/animation from an existing ./run
+./Allrun.sh -smoketest            # ~5 min check that your OpenFOAM version accepts
+                                  # everything (writes to smoketest_run/ and
+                                  # smoketest_results/, never touches run/ or results/)
 ```
+
+> On an OpenFOAM version other than v2412 (e.g. v2606), run `./Allrun.sh -smoketest`
+> first. It meshes, runs the steady initialisation, 60 moving-mesh time steps and the
+> post-processing, and ends with `SMOKE TEST PASSED`.
 
 The script runs these steps:
 

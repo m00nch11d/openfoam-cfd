@@ -14,6 +14,9 @@
 #     ./Allrun.sh -noanim           # skip the animation
 #     ./Allrun.sh -postonly         # only redo post-processing / animation
 #                                   # from an existing ./run
+#     ./Allrun.sh -smoketest        # ~5 min check that this OpenFOAM version
+#                                   # accepts everything (mesh, steady run,
+#                                   # 60 moving-mesh steps, post-processing)
 #
 # Results (PNG figures, GIF/MP4 animation, results.md, results.json) are
 # written to ./results; the OpenFOAM cases are kept in ./run/steady and
@@ -31,6 +34,7 @@ NP=8
 MAXCYC=5
 ANIM=1
 POSTONLY=0
+SMOKE=0
 while [ $# -gt 0 ]; do
     case "$1" in
         -np) NP="$2"; shift 2 ;;
@@ -38,6 +42,7 @@ while [ $# -gt 0 ]; do
         -cycletol) export CYCLE_TOL="$2"; shift 2 ;;
         -noanim) ANIM=0; shift ;;
         -postonly) POSTONLY=1; shift ;;
+        -smoketest) SMOKE=1; ANIM=0; shift ;;
         -h|--help) sed -n '2,/^[^#]/p' "$0" | sed '$d'; exit 0 ;;
         *) echo "unknown option $1"; exit 1 ;;
     esac
@@ -77,18 +82,23 @@ fi
 $PY scripts/params.py
 
 RUN=$HERE/run
+RESULTS=$HERE/results
+if [ "$SMOKE" -eq 1 ]; then          # never touch the real run / results
+    RUN=$HERE/smoketest_run
+    RESULTS=$HERE/smoketest_results
+fi
 ST=$RUN/steady
 UN=$RUN/unsteady
 
 post() {
     say "post-processing"
-    $PY scripts/post.py "$UN" "$HERE/results" "$RUN/plunging_geom.npz"
+    $PY scripts/post.py "$UN" "$RESULTS" "$RUN/plunging_geom.npz"
     if [ "$ANIM" -eq 1 ]; then
         say "animation (GIF, plus MP4 if ffmpeg is installed)"
-        $PY scripts/animate.py "$UN" "$HERE/results" "$RUN/plunging_geom.npz"
+        $PY scripts/animate.py "$UN" "$RESULTS" "$RUN/plunging_geom.npz"
     fi
-    say "done - results in $HERE/results"
-    cat "$HERE/results/results.md"
+    say "done - results in $RESULTS"
+    cat "$RESULTS/results.md"
 }
 
 if [ "$POSTONLY" -eq 1 ]; then
@@ -149,7 +159,14 @@ cp -r "$ST/constant/polyMesh" "$UN/constant/"
 $PY scripts/setup_case.py "$UN" unsteady "$NP" "$MAXCYC"
 (cd "$UN" && mapFields ../steady -consistent -sourceTime latestTime > log.mapFields 2>&1 \
     && touch case.foam) || die "mapFields failed"
+if [ "$SMOKE" -eq 1 ]; then
+    say "SMOKE TEST: only 60 time steps of the plunging case"
+    sed -i "s/^endTime .*/endTime         0.01;/" "$UN/system/controlDict"
+fi
 run_stage "$UN" unsteady
 
 #------------------------------------------------------------------ post
 post
+if [ "$SMOKE" -eq 1 ]; then
+    say "SMOKE TEST PASSED with OpenFOAM ${WM_PROJECT_VERSION:-?} - now run ./Allrun.sh for the real case"
+fi
